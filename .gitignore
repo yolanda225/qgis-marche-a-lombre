@@ -1,0 +1,11 @@
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# environment
+.venv
+
+# plugin builder
+README.txt
+README.html
