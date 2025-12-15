@@ -36,6 +36,11 @@ import inspect
 
 from qgis.core import QgsProcessingAlgorithm, QgsApplication
 from .marche_a_lombre_provider import MarcheALOmbreProvider
+from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtGui import QIcon
+
+from qgis.core import QgsProcessingAlgorithm, QgsApplication
+import processing
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
 
@@ -45,8 +50,9 @@ if cmd_folder not in sys.path:
 
 class MarcheALOmbrePlugin(object):
 
-    def __init__(self):
+    def __init__(self, iface):
         self.provider = None
+        self.iface = iface
 
     def initProcessing(self):
         """Init Processing provider for QGIS >= 3.8."""
@@ -56,5 +62,18 @@ class MarcheALOmbrePlugin(object):
     def initGui(self):
         self.initProcessing()
 
+        icon = os.path.join(os.path.join(cmd_folder, 'logo.png'))
+        self.action = QAction(  QIcon(icon),
+                                u"Marche à l'ombre", 
+                                self.iface.mainWindow())
+        self.action.triggered.connect(self.run)
+        self.iface.addPluginToMenu(u"&MarcheALOmbre", self.action)
+        self.iface.addToolBarIcon(self.action)
+
     def unload(self):
         QgsApplication.processingRegistry().removeProvider(self.provider)
+        self.iface.removePluginMenu(u"&MarcheALOmbre", self.action)
+        self.iface.removeToolBarIcon(self.action)
+
+    def run(self):
+        processing.execAlgorithmDialog("marchealombre:marche_a_lombre")

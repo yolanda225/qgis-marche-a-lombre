@@ -31,6 +31,9 @@ __copyright__ = '(C) 2025 by Yolanda Seifert'
 __revision__ = '$Format:%H$'
 
 from qgis.core import QgsProcessingProvider
+import os
+import inspect
+from qgis.PyQt.QtGui import QIcon
 from .marche_a_lombre_algorithm import MarcheALOmbreAlgorithm
 
 
@@ -63,7 +66,7 @@ class MarcheALOmbreProvider(QgsProcessingProvider):
         string should be a unique, short, character only string, eg "qgis" or
         "gdal". This string should not be localised.
         """
-        return "Marche à l'ombre"
+        return "marchealombre"
 
     def name(self):
         """
@@ -76,10 +79,12 @@ class MarcheALOmbreProvider(QgsProcessingProvider):
 
     def icon(self):
         """
-        Should return a QIcon which is used for your provider inside
+        Returns a QIcon which is used for the provider inside
         the Processing toolbox.
         """
-        return QgsProcessingProvider.icon(self)
+        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
+        icon = QIcon(os.path.join(os.path.join(cmd_folder, 'logo.png')))
+        return icon
 
     def longName(self):
         """

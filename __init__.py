@@ -36,4 +36,4 @@ def classFactory(iface):  # pylint: disable=invalid-name
     """
     #
     from .marche_a_lombre import MarcheALOmbrePlugin
-    return MarcheALOmbrePlugin()
+    return MarcheALOmbrePlugin(iface)

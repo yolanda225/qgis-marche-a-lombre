@@ -30,6 +30,9 @@ __copyright__ = '(C) 2025 by Yolanda Seifert'
 
 __revision__ = '$Format:%H$'
 
+import os
+import inspect
+from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (QgsProcessing,
                        QgsFeatureSink,
@@ -129,7 +132,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         lowercase alphanumeric characters only and no spaces or other
         formatting characters.
         """
-        return "Marche à l'ombre"
+        return "marche_a_lombre"
 
     def displayName(self):
         """
@@ -157,6 +160,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)
-
+    
+    def icon(self):
+        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
+        icon = QIcon(os.path.join(os.path.join(cmd_folder, 'logo.png')))
+        return icon
+    
     def createInstance(self):
         return MarcheALOmbreAlgorithm()
+    
+    
