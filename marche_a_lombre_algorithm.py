@@ -38,7 +38,9 @@ from qgis.core import (QgsProcessing,
                        QgsFeatureSink,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink)
+                       QgsProcessingParameterFeatureSink,
+                       QgsProcessingParameterDateTime,
+                       QgsProcessingParameterNumber)
 
 
 class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
@@ -61,6 +63,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
     OUTPUT = 'OUTPUT'
     INPUT = 'INPUT'
+    DEPARTURE_TIME = 'DEPARTURE_TIME'
+    HIKING_SPEED = 'HIKING_SPEED'
 
     def initAlgorithm(self, config):
         """
@@ -70,6 +74,32 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         # We add the input vector features source. It can have any kind of
         # geometry.
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.INPUT,
+                self.tr('Input layer'),
+                [QgsProcessing.TypeVectorAnyGeometry]
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterDateTime(
+                self.DEPARTURE_TIME,
+                self.tr('Departure Date and Time'),
+                type=QgsProcessingParameterDateTime.DateTime  # Allows selecting both Date and Time
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                self.HIKING_SPEED,
+                self.tr('Average Hiking Speed (km/h)'),
+                type=QgsProcessingParameterNumber.Double,
+                defaultValue=5.0,  # A standard hiking speed
+                minValue=0.0 
+            )
+        )
+
         self.addParameter(
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
@@ -97,6 +127,11 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # to uniquely identify the feature sink, and must be included in the
         # dictionary returned by the processAlgorithm function.
         source = self.parameterAsSource(parameters, self.INPUT, context)
+        departure_dt = self.parameterAsDateTime(parameters, self.DEPARTURE_TIME, context)
+        time_spec = departure_dt.timeSpec() 
+        departure_utc = departure_dt.toUTC()
+        speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
+
         (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT,
                 context, source.fields(), source.wkbType(), source.sourceCrs())
 
