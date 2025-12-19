@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
-from qgis.core import (
-    QgsBlockingNetworkRequest,
-)
-from qgis.PyQt.QtCore import QUrl
+import os
+import time
+from qgis.core import QgsNetworkAccessManager
+from qgis.PyQt.QtCore import QUrl, QCoreApplication
 from qgis.PyQt.QtNetwork import QNetworkRequest, QNetworkReply
+from osgeo import gdal, osr
 
 class MNSDownloader:
 
     BASE_URL = "https://data.geopf.fr/wms-r"
     
-    def __init__(self, feedback=None):
+    def __init__(self, crs="EPSG:2154", feedback=None):
+        self.manager = QgsNetworkAccessManager.instance()
+        self.crs = crs
         self.feedback = feedback
 
     def log(self, message):
@@ -20,7 +23,7 @@ class MNSDownloader:
 
     def read_tif(self, extent, width, height, output_path):
         """
-        Downloads MNS data using QgsBlockingNetworkRequest
+        Downloads MNS data and embeds georeferencing using GDAL
         """
         
         params = [
@@ -30,7 +33,7 @@ class MNSDownloader:
             f"LAYERS=IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93",
             f"STYLES=normal",
             f"FORMAT=image/tiff",
-            f"CRS=EPSG:2154",
+            f"CRS={self.crs}",
             f"BBOX={extent.xMinimum()},{extent.yMinimum()},{extent.xMaximum()},{extent.yMaximum()}",
             f"WIDTH={width}",
             f"HEIGHT={height}",
@@ -43,24 +46,29 @@ class MNSDownloader:
         # Setup the Request
         request = QNetworkRequest(QUrl(full_url_str))
         request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
-        blocker = QgsBlockingNetworkRequest()
-   
-        err_code = blocker.get(request)
+        reply = self.manager.get(request)
 
-        if err_code != QgsBlockingNetworkRequest.NoError:
-            if self.feedback:
-                self.feedback.reportError(f"Network Request Failed: {blocker.reply().errorString()}")
-            return False
+        # Wait loop for cancel button
+        while reply.isRunning():
+            if self.feedback and self.feedback.isCanceled():
+                reply.abort()
+                if self.feedback:
+                    self.feedback.reportError("Download canceled by user.")
+                return False
+            QCoreApplication.processEvents()
+            time.sleep(0.05)
 
         # Check HTTP Status
-        reply = blocker.reply()
         if reply.error() != QNetworkReply.NoError:
             if self.feedback:
-                self.feedback.reportError(f"HTTP Error: {reply.errorString()}")
+                if reply.error() != QNetworkReply.OperationCanceledError:
+                    self.feedback.reportError(f"HTTP Error: {reply.errorString()}")
+            self.log(f"QNetworkReply Error: {reply.errorString()}")
             return False
 
+        content = reply.readAll()
+
         # Write Content to Disk
-        content = reply.content()
         if not content or len(content) < 100:
             if self.feedback:
                 self.feedback.reportError(f"Download failed (File too small). Server returned: {bytes(content)}")
@@ -69,9 +77,43 @@ class MNSDownloader:
         try:
             with open(output_path, 'wb') as f:
                 f.write(content)
+            
+            self._embed_georeferencing(output_path, extent, width, height)
             self.log(f"Saved to {output_path}")
             return True
+
         except Exception as e:
             if self.feedback:
-                self.feedback.reportError(f"File Write Error: {e}")
+                self.feedback.reportError(f"GDAL Error: {e}")
             return False
+
+    def _embed_georeferencing(self, tif_path, extent, width, height):
+        """
+        Opens the existing TIFF using GDAL and injects spatial metadata (GeoTransform and Projection)
+        """
+        ds = gdal.Open(tif_path, 1)
+        if ds is None:
+            raise Exception("Could not open file with GDAL.")
+
+        x_res = (extent.xMaximum() - extent.xMinimum()) / width
+        y_res = (extent.yMaximum() - extent.yMinimum()) / height
+        
+        # GeoTransform list format:
+        # [0] Top-Left X Coordinate
+        # [1] W-E Pixel Resolution
+        # [2] Rotation
+        # [3] Top-Left Y Coordinate
+        # [4] Rotation
+        # [5] N-S Pixel Resolution (negative for north-up)
+        geotransform = [
+            extent.xMinimum(), x_res, 0,
+            extent.yMaximum(), 0, -y_res
+        ]
+        ds.SetGeoTransform(geotransform)
+
+        srs = osr.SpatialReference()
+        srs.SetFromUserInput(self.crs) 
+        
+        ds.SetProjection(srs.ExportToWkt())
+        # Close the file
+        ds = None
