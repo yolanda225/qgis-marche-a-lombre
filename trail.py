@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from qgis.core import (QgsCoordinateTransform, QgsPointXY, QgsGeometry, 
-                       QgsRectangle, QgsCoordinateReferenceSystem, QgsProject)
+                       QgsRectangle, QgsCoordinateReferenceSystem, QgsProject,
+                       QgsRasterLayer)
+from .trail_point import TrailPoint
 
 class Trail:
     def __init__(self, max_sep, speed, source_crs, target_crs, transform_context):
@@ -11,6 +13,8 @@ class Trail:
             self.src = QgsCoordinateReferenceSystem("EPSG:4326")
         self.dest = QgsCoordinateReferenceSystem(target_crs)
         self.transform = QgsCoordinateTransform(self.src, self.dest, transform_context)
+        self.wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
+        self.to_wgs84 = QgsCoordinateTransform(self.dest, self.wgs84, transform_context)
 
         # Manually define Lambert-93 if missing grids on Linux by using its raw Proj4 string
         if not self.transform.isValid():
@@ -29,8 +33,9 @@ class Trail:
         self.trail_points = []
         self.extent = QgsRectangle()
 
-    def process_trail(self, source_tracks):
+    def process_trail(self, source_tracks, start_time):
         self.trail_points = []
+        total_dist = 0.0
         
         for feature in source_tracks.getFeatures():
             geom = feature.geometry()
@@ -61,12 +66,40 @@ class Trail:
                 
                 # Densify 
                 densified_geom = new_geom.densifyByDistance(self.max_sep)
+
+                # Extract points and calculate Lat/Lon
+                verts = densified_geom.vertices()
+                prev_pt = None
                 
-                for v in densified_geom.vertices():
-                    self.trail_points.append(QgsPointXY(v.x(), v.y()))
+                for v in verts:
+                    pt_l93 = QgsPointXY(v.x(), v.y())
+                    geo_pt = self.to_wgs84.transform(pt_l93)
+                    
+                    # Calculate Distance for Time
+                    if prev_pt:
+                        dist = pt_l93.distance(prev_pt)
+                        total_dist += dist
+
+                    seconds_elapsed = total_dist / self.speed
+                    current_time = start_time.addSecs(int(seconds_elapsed))
+                    
+                    # Create TrailPoint object
+                    tp = TrailPoint(
+                        x=pt_l93.x(),
+                        y=pt_l93.y(),
+                        z = 0, # implement with MNT
+                        lat=geo_pt.y(), # Latitude
+                        lon=geo_pt.x(), # Longitude
+                        datetime=current_time
+                    )
+                    
+                    self.trail_points.append(tp)
+                    prev_pt = pt_l93
 
         if self.trail_points:
-            multipoint = QgsGeometry.fromMultiPointXY(self.trail_points)
+            temp_points = [QgsPointXY(tp.x, tp.y) for tp in self.trail_points]
+            
+            multipoint = QgsGeometry.fromMultiPointXY(temp_points)
             self.extent = multipoint.boundingBox()
             # Buffer around extent
             self.extent.grow(500.0)
@@ -74,3 +107,26 @@ class Trail:
             print(f"Success! Trail Extent: {self.extent.toString()}")
         else:
             raise Exception("No trail points could be processed.")
+        
+    def sample_elevation(self, mnt_path):
+        """
+        Loads the MNT raster from the given path and updates
+        the z-value of all trail points.
+        """
+        # Load the MNT as a raster layer
+        rlayer = QgsRasterLayer(mnt_path, "mnt_sampling")
+        
+        if not rlayer.isValid():
+            print(f"Error: Could not load MNT from {mnt_path}")
+            return
+
+        provider = rlayer.dataProvider()
+        
+        # Loop through all points and sample the raster
+        for tp in self.trail_points:
+            val, res = provider.sample(QgsPointXY(tp.x, tp.y), 1)
+            
+            if res:
+                tp.z = val
+            else:
+                tp.z = 0.0 # Default if outside raster or nodata
