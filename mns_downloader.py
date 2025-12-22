@@ -21,16 +21,20 @@ class MNSDownloader:
         else:
             print(message)
 
-    def read_tif(self, extent, width, height, output_path):
+    def read_tif(self, extent, width, height, output_path, mns = True):
         """
         Downloads MNS data and embeds georeferencing using GDAL
         """
-        
+        if mns:
+            mn = "MNS"
+        else:
+            # MNT used for the altitude values of the trail
+            mn = "MNT"
         params = [
             f"SERVICE=WMS",
             f"VERSION=1.3.0",
             f"REQUEST=GetMap",
-            f"LAYERS=IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93",
+            f"LAYERS=IGNF_LIDAR-HD_{mn}_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93",
             f"STYLES=normal",
             f"FORMAT=image/tiff",
             f"CRS={self.crs}",
