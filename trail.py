@@ -6,7 +6,7 @@ from .trail_point import TrailPoint
 
 class Trail:
     def __init__(self, max_sep, speed, source_crs, target_crs, transform_context):
-        self.speed = speed
+        self.speed = (5/18) * speed # km/h to m/s
         self.max_sep = max_sep
         self.src = source_crs
         if not self.src.isValid():
