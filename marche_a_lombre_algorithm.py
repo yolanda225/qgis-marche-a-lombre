@@ -33,14 +33,28 @@ __revision__ = '$Format:%H$'
 import os
 import inspect
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtCore import QCoreApplication
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (QgsProcessing,
                        QgsFeatureSink,
                        QgsProcessingAlgorithm,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFeatureSink,
                        QgsProcessingParameterDateTime,
-                       QgsProcessingParameterNumber)
+                       QgsProcessingParameterNumber,
+                       QgsPoint,
+                       QgsProcessingException,
+                       QgsProcessingParameterRasterDestination,
+                       QgsCoordinateReferenceSystem,
+                       QgsFields,
+                       QgsWkbTypes,
+                       QgsFeature,
+                       QgsGeometry,
+                       QgsField,
+                       QgsProcessingUtils)
+
+
+from .mns_downloader import MNSDownloader
+from .trail import Trail
 
 
 class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
@@ -65,6 +79,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     INPUT = 'INPUT'
     DEPARTURE_TIME = 'DEPARTURE_TIME'
     HIKING_SPEED = 'HIKING_SPEED'
+    OUTPUT_POINTS = 'OUTPUT_POINTS'
 
     def initAlgorithm(self, config):
         """
@@ -77,7 +92,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
-                self.tr('Input layer'),
+                self.tr('Input layer - tracks'),
                 [QgsProcessing.TypeVectorAnyGeometry]
             )
         )
@@ -100,21 +115,27 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-        self.addParameter(
-            QgsProcessingParameterFeatureSource(
-                self.INPUT,
-                self.tr('Input layer'),
-                [QgsProcessing.TypeVectorAnyGeometry]
-            )
-        )
-
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
         # algorithm is run in QGIS).
+        # self.addParameter(
+        #     QgsProcessingParameterFeatureSink(
+        #         self.OUTPUT,
+        #         self.tr('Output layer')
+        #     )
+        # )
+        self.addParameter(
+            QgsProcessingParameterRasterDestination(
+                self.OUTPUT,
+                self.tr('MNS')
+            )
+        )
+
         self.addParameter(
             QgsProcessingParameterFeatureSink(
-                self.OUTPUT,
-                self.tr('Output layer')
+                self.OUTPUT_POINTS,
+                self.tr('Densified Trail Points'),
+                type=QgsProcessing.TypeVectorPoint
             )
         )
 
@@ -132,24 +153,107 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
 
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT,
-                context, source.fields(), source.wkbType(), source.sourceCrs())
-
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / source.featureCount() if source.featureCount() else 0
         features = source.getFeatures()
 
-        for current, feature in enumerate(features):
-            # Stop the algorithm if cancel button has been clicked
-            if feedback.isCanceled():
-                break
+        ########################## TRAIL PROCESSING #########################
+        target_crs = QgsCoordinateReferenceSystem("EPSG:2154")
+        source_crs = source.sourceCrs()
+        if not source_crs.isValid():
+            raise QgsProcessingException(
+                "Input layer has no valid CRS. Please define the layer CRS before running this algorithm."
+            )
 
-            # Add a feature in the sink
-            sink.addFeature(feature, QgsFeatureSink.FastInsert)
+        trail = Trail(
+            max_sep=20,
+            speed=speed, 
+            source_crs=source_crs, 
+            target_crs=target_crs, 
+            transform_context=context.transformContext()
+        )
+        trail.process_trail(source_tracks=source, start_time=departure_utc)
 
-            # Update the progress bar
-            feedback.setProgress(int(current * total))
+        ########################## MNT DOWNLOAD (For Z Values) ##################
+        # Generate a temporary file path for the MNT
+        mnt_path = QgsProcessingUtils.generateTempFilename('mnt_elevation.tif')
+        
+        downloader = MNSDownloader(feedback=feedback)
+        feedback.pushInfo(f"Downloading MNT for elevation data to {mnt_path}...")
+
+        # Download MNT (mns=False)
+        success_mnt = downloader.read_tif(
+            extent=trail.extent,
+            width=1000,
+            height=1000,
+            output_path=mnt_path,
+            mns=False 
+        )
+
+        if not success_mnt:
+            raise QgsProcessingException("Failed to download MNT data.")
+        
+        # Integrate MNT into Trail (Sample Z values)
+        feedback.pushInfo("Sampling elevation for trail points...")
+        trail.sample_elevation(mnt_path)
+
+        ########################## MNS DOWNLOAD (for Shade) ############################
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
+
+        downloader = MNSDownloader(feedback=feedback)
+        success = downloader.read_tif(
+            extent=trail.extent,
+            width=1000,
+            height=1000,
+            output_path=output_path
+        )
+
+        if not success:
+            raise QgsProcessingException("Failed to download MNS data.")
+        
+        feedback.pushInfo("Elevation data ready. Proceeding with shade calculation...")
+
+        ########################## WRITE OUTPUT POINTS ##########################
+        # Define attribute table columns
+        fields = QgsFields()
+        fields.append(QgsField("id", QVariant.Int))
+        fields.append(QgsField("x_l93", QVariant.Double))      # Lambert-93 X
+        fields.append(QgsField("y_l93", QVariant.Double))      # Lambert-93 Y
+        fields.append(QgsField("z_mnt", QVariant.Double))      # Elevation
+        fields.append(QgsField("latitude", QVariant.Double))   # WGS84 Lat
+        fields.append(QgsField("longitude", QVariant.Double))  # WGS84 Lon
+        fields.append(QgsField("arrival_time", QVariant.DateTime)) # Time
+
+        (point_sink, point_dest_id) = self.parameterAsSink(
+            parameters, 
+            self.OUTPUT_POINTS, 
+            context, 
+            fields, 
+            QgsWkbTypes.PointZ,
+            target_crs
+        )
+        if point_sink is None:
+            raise QgsProcessingException("Could not create point sink")
+
+        for i, tp in enumerate(trail.trail_points):
+            if feedback.isCanceled(): break
+
+            feat = QgsFeature(fields)
+            geom = QgsGeometry.fromPoint(QgsPoint(tp.x, tp.y, tp.z))
+            feat.setGeometry(geom)
+            
+            feat.setAttributes([
+                i,
+                tp.x,
+                tp.y,
+                tp.z,
+                tp.lat,
+                tp.lon,
+                tp.datetime
+            ])
+            point_sink.addFeature(feat, QgsFeatureSink.FastInsert)
+            feedback.setProgress(int(i * total))
 
         # Return the results of the algorithm. In this case our only result is
         # the feature sink which contains the processed features, but some
@@ -157,7 +261,10 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # statistics, etc. These should all be included in the returned
         # dictionary, with keys matching the feature corresponding parameter
         # or output names.
-        return {self.OUTPUT: dest_id}
+        return {
+            self.OUTPUT: output_path, # The Raster
+            self.OUTPUT_POINTS: point_dest_id # The Trail Points
+        }
 
     def name(self):
         """
