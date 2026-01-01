@@ -220,10 +220,12 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         fields.append(QgsField("id", QVariant.Int))
         fields.append(QgsField("x_l93", QVariant.Double))      # Lambert-93 X
         fields.append(QgsField("y_l93", QVariant.Double))      # Lambert-93 Y
-        fields.append(QgsField("z_mnt", QVariant.Double))      # Elevation
+        fields.append(QgsField("z_mnt", QVariant.Double))      # Altitude
         fields.append(QgsField("latitude", QVariant.Double))   # WGS84 Lat
         fields.append(QgsField("longitude", QVariant.Double))  # WGS84 Lon
         fields.append(QgsField("arrival_time", QVariant.DateTime)) # Time
+        fields.append(QgsField("elevation_rad", QVariant.Double)) # Sun elevation angle
+        fields.append(QgsField("azimuth_rad", QVariant.Double)) # Sun azimtuh angle
 
         (point_sink, point_dest_id) = self.parameterAsSink(
             parameters, 
@@ -250,7 +252,9 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 tp.z,
                 tp.lat,
                 tp.lon,
-                tp.datetime
+                tp.datetime,
+                tp.solar_pos[0],
+                tp.solar_pos[1]
             ])
             point_sink.addFeature(feat, QgsFeatureSink.FastInsert)
             feedback.setProgress(int(i * total))
