@@ -33,6 +33,7 @@ __revision__ = '$Format:%H$'
 import os
 import inspect
 import math
+import processing
 from osgeo import gdal
 from qgis.PyQt.QtGui import QIcon, QColor
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
@@ -43,6 +44,7 @@ from qgis.core import (QgsProcessing,
                         QgsProcessingParameterFeatureSink,
                         QgsProcessingParameterDateTime,
                         QgsProcessingParameterNumber,
+                        QgsProcessingParameterPoint,
                         QgsPoint,
                         QgsProcessingException,
                         QgsProcessingParameterRasterDestination,
@@ -55,7 +57,10 @@ from qgis.core import (QgsProcessing,
                         QgsProcessingUtils,
                         QgsCategorizedSymbolRenderer,
                         QgsRendererCategory,
-                        QgsSymbol)
+                        QgsSymbol,
+                        QgsSimpleMarkerSymbolLayer,
+                        QgsProperty,
+                        QgsSymbolLayer)
 
 
 from .mns_downloader import MNSDownloader
@@ -85,7 +90,9 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     INPUT = 'INPUT'
     DEPARTURE_TIME = 'DEPARTURE_TIME'
     HIKING_SPEED = 'HIKING_SPEED'
+    PICNIC_POINT = 'PICNIC_POINT'
     OUTPUT_POINTS = 'OUTPUT_POINTS'
+    HILLSHADE = 'HILLSHADE'
 
     def initAlgorithm(self, config):
         """
@@ -121,6 +128,15 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
+        self.addParameter(
+            QgsProcessingParameterPoint(
+                self.PICNIC_POINT,
+                self.tr('Picnic Break Location (1h stop)'),
+                optional=True  # Optional: user might not want a break
+            )
+        )
+
+
         # We add a feature sink in which to store our processed features (this
         # usually takes the form of a newly created vector layer when the
         # algorithm is run in QGIS).
@@ -145,6 +161,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
+        self.addParameter(
+            QgsProcessingParameterRasterDestination(
+                self.HILLSHADE,
+                self.tr('Hillshade')
+            )
+        )
+
     def processAlgorithm(self, parameters, context, feedback):
         """
         Here is where the processing itself takes place.
@@ -158,6 +181,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         time_spec = departure_dt.timeSpec() 
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
+        picnic_point = self.parameterAsPoint(parameters, self.BREAK_POINT, context)
 
         # Compute the number of steps to display within the progress bar and
         # get features from source
@@ -227,11 +251,6 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         mns_band = ds.GetRasterBand(1)
         mns_array = mns_band.ReadAsArray() # Returns numpy array
         geo_transform = ds.GetGeoTransform()
-        
-        # Handle NoData
-        nodata = mns_band.GetNoDataValue()
-        if nodata is not None:
-            mns_array[mns_array == nodata] = -9999
             
         ds = None # Close dataset
 
@@ -246,8 +265,40 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         
         shadow_results = calculator.calculate_shadows(
             trail_points=trail.trail_points,
-            max_dist_m=500
+            max_dist_m=1000
         )
+
+        ########################## HILLSHADE CALCULATION ########################
+        feedback.pushInfo("Calculating average sun position for hillshade...")
+
+        # Calculate average azimuth and elevation
+        if trail.trail_points:
+            avg_elev_rad = max(0,sum(tp.solar_pos[0] for tp in trail.trail_points) / len(trail.trail_points)) # Night check
+            avg_az_rad = sum(tp.solar_pos[1] for tp in trail.trail_points) / len(trail.trail_points)
+
+            avg_elev_deg = math.degrees(avg_elev_rad)
+            avg_az_deg = math.degrees(avg_az_rad)
+            
+            feedback.pushInfo(f"Hillshade settings - Azimuth: {avg_az_deg:.1f}°, Elevation: {avg_elev_deg:.1f}°")
+        else:
+            # Fallback if no points
+            avg_az_deg = 315
+            avg_elev_deg = 45
+
+        hillshade_output = self.parameterAsOutputLayer(parameters, self.HILLSHADE, context)
+        params = {
+            'INPUT': output_path,   # MNS
+            'BAND': 1,
+            'Z_FACTOR': 1,
+            'AZIMUTH': avg_az_deg,
+            'ALTITUDE': avg_elev_deg,
+            'OUTPUT': hillshade_output
+        }
+        
+        try:
+            processing.run("gdal:hillshade", params, context=context, feedback=feedback)
+        except Exception as e:
+            feedback.reportError(f"Hillshade creation failed: {e}")
         
         ########################## WRITE OUTPUT POINTS ##########################
         # Define attribute table columns
@@ -263,6 +314,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         fields.append(QgsField("arrival_time", QVariant.DateTime)) # Time
         fields.append(QgsField("elevation_deg", QVariant.Double)) # Sun elevation angle
         fields.append(QgsField("azimuth_deg", QVariant.Double)) # Sun azimtuh angle
+        fields.append(QgsField("course", QVariant.Double))
 
         (point_sink, point_dest_id) = self.parameterAsSink(
             parameters, 
@@ -280,6 +332,15 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         feedback.pushInfo("Writing results...")
         for i, tp in enumerate(trail.trail_points):
             if feedback.isCanceled(): break
+
+            # Calculate direction to next point for visualization
+            course = 0.0
+            if i < len(trail.trail_points) - 1:
+                next_tp = trail.trail_points[i+1]
+                course = QgsPoint(tp.x, tp.y).azimuth(QgsPoint(next_tp.x, next_tp.y))
+            elif i > 0:
+                course = prev_course
+            prev_course = course
 
             feat = QgsFeature(fields)
             geom = QgsGeometry.fromPoint(QgsPoint(tp.x, tp.y, tp.z))
@@ -299,7 +360,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 tp.lon,
                 tp.datetime,
                 math.degrees(tp.solar_pos[0]),
-                math.degrees(tp.solar_pos[1])
+                math.degrees(tp.solar_pos[1]),
+                course
             ])
             point_sink.addFeature(feat, QgsFeatureSink.FastInsert)
             feedback.setProgress(int(i * total))
@@ -328,9 +390,18 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             ]
 
             for val, label, color in styles:
+                sym_layer = QgsSimpleMarkerSymbolLayer.create({
+                    'name': 'filled_arrowhead', 
+                    'color': color,
+                    'size': '1.0',
+                })
+
+                # Direction of arrow based on course field
+                prop_angle = QgsProperty.fromExpression('"course" - 90')
+                sym_layer.setDataDefinedProperty(QgsSymbolLayer.PropertyAngle, prop_angle)
+
                 sym = QgsSymbol.defaultSymbol(layer.geometryType())
-                sym.setColor(QColor(color))
-                sym.setSize(2)
+                sym.changeSymbolLayer(0, sym_layer)
                 categories.append(QgsRendererCategory(val, sym, label, True))
 
             renderer = QgsCategorizedSymbolRenderer("is_shadow", categories)
