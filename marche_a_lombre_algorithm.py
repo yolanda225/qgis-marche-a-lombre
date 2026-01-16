@@ -182,15 +182,14 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         mnt_path = QgsProcessingUtils.generateTempFilename('mnt_elevation.tif')
         
         downloader = MNSDownloader(feedback=feedback)
-        feedback.pushInfo(f"Downloading MNT for elevation data to {mnt_path}...")
-
+        feedback.pushInfo(f"Downloading MNT for trail elevation data to {mnt_path}...")
+        target_resolution = 0.5
         # Download MNT (mns=False)
         success_mnt = downloader.read_tif(
             extent=trail.extent,
-            width=1000,
-            height=1000,
+            resolution=target_resolution*2, # less variation in trail elevation so smaller resolution necessary
             output_path=mnt_path,
-            mns=False 
+            is_mns=False 
         )
 
         if not success_mnt:
@@ -202,14 +201,12 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
-        target_resolution = 0.5  # meters per pixel
-        width_px = min(4000,int(trail.extent.width() / target_resolution)) # max pixel to request between 5000 and 5500 -> divide in multiple requests
-        height_px = min(4000,int(trail.extent.height() / target_resolution))
+        feedback.pushInfo(f"Downloading MNS to {mnt_path}...")
+
         downloader = MNSDownloader(feedback=feedback)
         success = downloader.read_tif(
             extent=trail.extent,
-            width=width_px,
-            height=height_px,
+            resolution=target_resolution, # meters per pixel
             output_path=output_path
         )
 
