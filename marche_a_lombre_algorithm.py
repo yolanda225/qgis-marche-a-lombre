@@ -32,26 +32,30 @@ __revision__ = '$Format:%H$'
 
 import os
 import inspect
+import math
 from osgeo import gdal
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon, QColor
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (QgsProcessing,
-                       QgsFeatureSink,
-                       QgsProcessingAlgorithm,
-                       QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterFeatureSink,
-                       QgsProcessingParameterDateTime,
-                       QgsProcessingParameterNumber,
-                       QgsPoint,
-                       QgsProcessingException,
-                       QgsProcessingParameterRasterDestination,
-                       QgsCoordinateReferenceSystem,
-                       QgsFields,
-                       QgsWkbTypes,
-                       QgsFeature,
-                       QgsGeometry,
-                       QgsField,
-                       QgsProcessingUtils)
+                        QgsFeatureSink,
+                        QgsProcessingAlgorithm,
+                        QgsProcessingParameterFeatureSource,
+                        QgsProcessingParameterFeatureSink,
+                        QgsProcessingParameterDateTime,
+                        QgsProcessingParameterNumber,
+                        QgsPoint,
+                        QgsProcessingException,
+                        QgsProcessingParameterRasterDestination,
+                        QgsCoordinateReferenceSystem,
+                        QgsFields,
+                        QgsWkbTypes,
+                        QgsFeature,
+                        QgsGeometry,
+                        QgsField,
+                        QgsProcessingUtils,
+                        QgsCategorizedSymbolRenderer,
+                        QgsRendererCategory,
+                        QgsSymbol)
 
 
 from .mns_downloader import MNSDownloader
@@ -257,8 +261,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         fields.append(QgsField("latitude", QVariant.Double))   # WGS84 Lat
         fields.append(QgsField("longitude", QVariant.Double))  # WGS84 Lon
         fields.append(QgsField("arrival_time", QVariant.DateTime)) # Time
-        fields.append(QgsField("elevation_rad", QVariant.Double)) # Sun elevation angle
-        fields.append(QgsField("azimuth_rad", QVariant.Double)) # Sun azimtuh angle
+        fields.append(QgsField("elevation_deg", QVariant.Double)) # Sun elevation angle
+        fields.append(QgsField("azimuth_deg", QVariant.Double)) # Sun azimtuh angle
 
         (point_sink, point_dest_id) = self.parameterAsSink(
             parameters, 
@@ -268,6 +272,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             QgsWkbTypes.PointZ,
             target_crs
         )
+        self.point_dest_id = point_dest_id
+
         if point_sink is None:
             raise QgsProcessingException("Could not create point sink")
         
@@ -292,8 +298,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 tp.lat,
                 tp.lon,
                 tp.datetime,
-                tp.solar_pos[0],
-                tp.solar_pos[1]
+                math.degrees(tp.solar_pos[0]),
+                math.degrees(tp.solar_pos[1])
             ])
             point_sink.addFeature(feat, QgsFeatureSink.FastInsert)
             feedback.setProgress(int(i * total))
@@ -304,10 +310,34 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # statistics, etc. These should all be included in the returned
         # dictionary, with keys matching the feature corresponding parameter
         # or output names.
-        return {
-            self.OUTPUT: output_path, # The Raster
-            self.OUTPUT_POINTS: point_dest_id # The Trail Points
+        self.results = {
+            self.OUTPUT: output_path,
+            self.OUTPUT_POINTS: point_dest_id
         }
+        return self.results
+    
+    def postProcessAlgorithm(self, context, feedback):
+        # style the output trail depending on Sun/Shadow
+        layer = QgsProcessingUtils.mapLayerFromString(self.point_dest_id, context)
+        
+        if layer:
+            categories = []
+            styles = [
+                (0, "Sun", "gold"), 
+                (1, "Shadow", "#1f78b4") 
+            ]
+
+            for val, label, color in styles:
+                sym = QgsSymbol.defaultSymbol(layer.geometryType())
+                sym.setColor(QColor(color))
+                sym.setSize(2)
+                categories.append(QgsRendererCategory(val, sym, label, True))
+
+            renderer = QgsCategorizedSymbolRenderer("is_shadow", categories)
+            layer.setRenderer(renderer)
+            layer.triggerRepaint()
+            
+        return self.results
 
     def name(self):
         """
