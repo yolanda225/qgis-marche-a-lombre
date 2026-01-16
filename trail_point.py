@@ -11,7 +11,7 @@ class TrailPoint:
         self.y = y
         self.z = z
         self.datetime = datetime
-        self.solar_pos = self.calc_solar_pos(self.datetime.toUTC().toPyDateTime())
+        self.solar_pos = self.calc_solar_pos(self.datetime)
 
     def calc_solar_pos(self, dt):
         """
@@ -25,6 +25,7 @@ class TrailPoint:
         Returns:
             tuple (float): (elevation, azimuth) in radians
         """
+        dt = dt.toUTC().toPyDateTime()
         # Calculate time variables
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)

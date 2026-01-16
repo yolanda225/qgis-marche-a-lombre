@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 from qgis.core import (QgsCoordinateTransform, QgsPointXY, QgsGeometry, 
                        QgsRectangle, QgsCoordinateReferenceSystem, QgsProject,
                        QgsRasterLayer)
@@ -33,7 +34,7 @@ class Trail:
         self.trail_points = []
         self.extent = QgsRectangle()
 
-    def process_trail(self, source_tracks, start_time):
+    def process_trail(self, source_tracks, start_time, break_point):
         self.trail_points = []
         total_dist = 0.0
         
@@ -107,6 +108,30 @@ class Trail:
             print(f"Success! Trail Extent: {self.extent.toString()}")
         else:
             raise Exception("No trail points could be processed.")
+        
+        if break_point and self.trail_points:
+            # Find the closest point to break location
+            closest_idx = 0
+            min_dist = float('inf')
+            
+            for i, tp in enumerate(self.trail_points):
+                # Calculate distance
+                dist = math.sqrt((tp.x - break_point.x())**2 + (tp.y - break_point.y())**2)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_idx = i
+            
+            # Add 1 hour to all points after the break
+            if min_dist < 500: # only apply if the point is somewhat near the trail
+                print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
+                for i in range(closest_idx, len(self.trail_points)):
+                    tp = self.trail_points[i]
+                    tp.datetime = tp.datetime.addSecs(3600)
+                    
+                    # Recalculate solar position for the new time
+                    tp.solar_pos = tp.calc_solar_pos(self.trail_points[i].datetime)
+            else:
+                 print(f"Break point too far from trail ({min_dist:.1f}m). Ignored.")
         
     def sample_elevation(self, mnt_path):
         """

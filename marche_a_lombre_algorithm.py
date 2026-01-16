@@ -181,7 +181,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         time_spec = departure_dt.timeSpec() 
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
-        picnic_point = self.parameterAsPoint(parameters, self.BREAK_POINT, context)
+        picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
 
         # Compute the number of steps to display within the progress bar and
         # get features from source
@@ -203,7 +203,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             target_crs=target_crs, 
             transform_context=context.transformContext()
         )
-        trail.process_trail(source_tracks=source, start_time=departure_utc)
+        trail.process_trail(source_tracks=source, start_time=departure_utc, break_point=picnic_point)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
         # Generate a temporary file path for the MNT
@@ -215,7 +215,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # Download MNT (mns=False)
         success_mnt = downloader.read_tif(
             extent=trail.extent,
-            resolution=target_resolution*2, # less variation in trail elevation so smaller resolution necessary
+            resolution=target_resolution*2, # less variation in trail elevation so lower resolution necessary
             output_path=mnt_path,
             is_mns=False 
         )
@@ -393,7 +393,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 sym_layer = QgsSimpleMarkerSymbolLayer.create({
                     'name': 'filled_arrowhead', 
                     'color': color,
-                    'size': '1.0',
+                    'size': '2.5',
                 })
 
                 # Direction of arrow based on course field
