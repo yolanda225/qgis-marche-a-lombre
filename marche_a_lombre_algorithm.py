@@ -32,6 +32,7 @@ __revision__ = '$Format:%H$'
 
 import os
 import inspect
+from osgeo import gdal
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (QgsProcessing,
@@ -55,6 +56,7 @@ from qgis.core import (QgsProcessing,
 
 from .mns_downloader import MNSDownloader
 from .trail import Trail
+from .shadow_calculator import ShadowCalculator
 
 
 class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
@@ -200,12 +202,14 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
-
+        target_resolution = 0.5  # meters per pixel
+        width_px = min(4000,int(trail.extent.width() / target_resolution)) # max pixel to request between 5000 and 5500 -> divide in multiple requests
+        height_px = min(4000,int(trail.extent.height() / target_resolution))
         downloader = MNSDownloader(feedback=feedback)
         success = downloader.read_tif(
             extent=trail.extent,
-            width=1000,
-            height=1000,
+            width=width_px,
+            height=height_px,
             output_path=output_path
         )
 
@@ -213,11 +217,43 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             raise QgsProcessingException("Failed to download MNS data.")
         
         feedback.pushInfo("Elevation data ready. Proceeding with shade calculation...")
+        
+        # Open MNS raster with GDAL
+        ds = gdal.Open(output_path)
+        if ds is None:
+            raise QgsProcessingException("Could not open downloaded MNS.")
+            
+        mns_band = ds.GetRasterBand(1)
+        mns_array = mns_band.ReadAsArray() # Returns numpy array
+        geo_transform = ds.GetGeoTransform()
+        
+        # Handle NoData
+        nodata = mns_band.GetNoDataValue()
+        if nodata is not None:
+            mns_array[mns_array == nodata] = -9999
+            
+        ds = None # Close dataset
 
+        ########################## CALCULATE SHADOWS ############################
+        feedback.pushInfo("Calculating shadows...")
+ 
+        calculator = ShadowCalculator(
+            mns_data=mns_array,
+            geo_transform=geo_transform,
+            resolution=target_resolution
+        )
+        
+        shadow_results = calculator.calculate_shadows(
+            trail_points=trail.trail_points,
+            max_dist_m=500
+        )
+        
         ########################## WRITE OUTPUT POINTS ##########################
         # Define attribute table columns
         fields = QgsFields()
         fields.append(QgsField("id", QVariant.Int))
+        fields.append(QgsField("status", QVariant.String))     # Sunny / Shady
+        fields.append(QgsField("is_shadow", QVariant.Int))     # 0 / 1
         fields.append(QgsField("x_l93", QVariant.Double))      # Lambert-93 X
         fields.append(QgsField("y_l93", QVariant.Double))      # Lambert-93 Y
         fields.append(QgsField("z_mnt", QVariant.Double))      # Altitude
@@ -237,7 +273,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         )
         if point_sink is None:
             raise QgsProcessingException("Could not create point sink")
-
+        
+        feedback.pushInfo("Writing results...")
         for i, tp in enumerate(trail.trail_points):
             if feedback.isCanceled(): break
 
@@ -245,8 +282,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             geom = QgsGeometry.fromPoint(QgsPoint(tp.x, tp.y, tp.z))
             feat.setGeometry(geom)
             
+            is_shadow = shadow_results[i]
+            status_str = "Shadow" if is_shadow == 1 else "Sun"
+            
             feat.setAttributes([
                 i,
+                status_str,
+                int(is_shadow),
                 tp.x,
                 tp.y,
                 tp.z,
