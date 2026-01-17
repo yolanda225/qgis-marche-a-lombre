@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 import math
 from datetime import datetime, timezone
+try:
+    import pvlib
+    HAS_PVLIB = True
+except ImportError:
+    HAS_PVLIB = False
 
 class TrailPoint:
 
@@ -72,5 +77,21 @@ class TrailPoint:
         azimuth_rad = math.atan2(y, x)
         # Normalize to 0-2pi
         azimuth_rad = (azimuth_rad + 2 * math.pi) % (2 * math.pi)
+
+        # Validation
+        if HAS_PVLIB:
+            sp = pvlib.solarposition.get_solarposition(dt, self.lat, self.lon, altitude=None, pressure=None, method='nrel_numpy')
+            azimuth_pvlib = sp['azimuth'].iloc[0]
+            elevation_pvlib = 90-sp['zenith'].iloc[0]
+            diff_elev = abs(math.degrees(elevation_rad) - elevation_pvlib)
+            diff_az = abs(math.degrees(azimuth_rad) - azimuth_pvlib)
+            if diff_az > 180:
+                diff_az = 360 - diff_az  # Handle 360 wrap-around
+
+            if diff_elev < 0.01 and diff_az < 0.01:
+                print(f"Validation successful (Diffs: Elev={diff_elev:.4f}, Az={diff_az:.4f})")
+            else:
+                print(f"VALIDATION FAILED! (Diffs: Elev={diff_elev:.4f}, Az={diff_az:.4f})")
+            return (math.radians(elevation_pvlib), math.radians(azimuth_pvlib))
 
         return (elevation_rad, azimuth_rad)
