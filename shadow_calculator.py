@@ -143,7 +143,7 @@ class ShadowCalculator:
             
             # Night check
             sun_elevation_rad = tp.solar_pos[0]
-            if sun_elevation_rad <= 0:
+            if sun_elevation_rad < 0:
                 results.append(1) # It is night/shady
                 continue
 

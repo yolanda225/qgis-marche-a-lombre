@@ -48,6 +48,7 @@ from qgis.core import (QgsProcessing,
                         QgsPoint,
                         QgsProcessingException,
                         QgsProcessingParameterRasterDestination,
+                        QgsProcessingParameterFileDestination,
                         QgsCoordinateReferenceSystem,
                         QgsFields,
                         QgsWkbTypes,
@@ -59,6 +60,7 @@ from qgis.core import (QgsProcessing,
                         QgsRendererCategory,
                         QgsSymbol,
                         QgsSimpleMarkerSymbolLayer,
+                        QgsVectorLayer,
                         QgsProperty,
                         QgsSymbolLayer)
 
@@ -93,6 +95,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     PICNIC_POINT = 'PICNIC_POINT'
     OUTPUT_POINTS = 'OUTPUT_POINTS'
     HILLSHADE = 'HILLSHADE'
+    OUTPUT_CSV = 'OUTPUT_CSV'
 
     def initAlgorithm(self, config):
         """
@@ -168,6 +171,14 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
+        self.addParameter(
+            QgsProcessingParameterFileDestination(
+                self.OUTPUT_CSV,
+                self.tr('Statistics Table'),
+                fileFilter='CSV files (*.csv)'
+            )
+        )
+
     def processAlgorithm(self, parameters, context, feedback):
         """
         Here is where the processing itself takes place.
@@ -182,6 +193,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
+        csv_path = self.parameterAsFileOutput(parameters, self.OUTPUT_CSV, context)
 
         # Compute the number of steps to display within the progress bar and
         # get features from source
@@ -189,6 +201,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         features = source.getFeatures()
 
         ########################## TRAIL PROCESSING #########################
+        feedback.pushInfo("Processing trail...")
         target_crs = QgsCoordinateReferenceSystem("EPSG:2154")
         source_crs = source.sourceCrs()
         if not source_crs.isValid():
@@ -267,6 +280,34 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             trail_points=trail.trail_points,
             max_dist_m=1000
         )
+
+        ########################## CALCULATE STATISTICS ############################
+        total_points = len(shadow_results)
+        shady_points = sum(shadow_results)
+        sunny_points = total_points - shady_points
+        
+        percent_shady = (shady_points / total_points * 100) if total_points > 0 else 0.0
+        percent_sunny = (sunny_points / total_points * 100) if total_points > 0 else 0.0
+
+        feedback.pushInfo(f"Statistics: {percent_shady:.1f}% Shady, {percent_sunny:.1f}% Sunny")
+
+        if csv_path:
+            try:
+                with open(csv_path, 'w') as f:
+                    # Header
+                    f.write("Duration (min), % Shady, % Sunny, Time spent in Shadow (min), Time spent in Sun (min), Shady Points, Sunny Points, Total Points\n")
+                    
+                    duration_min = 0
+                    if trail.trail_points:
+                        start = trail.trail_points[0].datetime
+                        end = trail.trail_points[-1].datetime
+                        duration_min = start.secsTo(end) / 60
+                    time_shady = int(duration_min*percent_shady/100)
+                    time_sunny = int(duration_min*percent_sunny/100)
+
+                    f.write(f"{duration_min:.1f},{percent_shady:.2f},{percent_sunny:.2f},{time_shady},{time_sunny},{shady_points},{sunny_points},{total_points}\n")
+            except Exception as e:
+                feedback.reportError(f"Failed to write CSV: {e}")
 
         ########################## HILLSHADE CALCULATION ########################
         feedback.pushInfo("Calculating average sun position for hillshade...")
@@ -374,7 +415,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # or output names.
         self.results = {
             self.OUTPUT: output_path,
-            self.OUTPUT_POINTS: point_dest_id
+            self.OUTPUT_POINTS: point_dest_id,
+            self.OUTPUT_CSV: csv_path
         }
         return self.results
     
@@ -407,7 +449,16 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             renderer = QgsCategorizedSymbolRenderer("is_shadow", categories)
             layer.setRenderer(renderer)
             layer.triggerRepaint()
+
+        csv_path = self.results.get(self.OUTPUT_CSV)
+        if csv_path and os.path.exists(csv_path):
+            # Create delimited text layer from csv
+            path = csv_path.replace('\\', '/')
+            uri = f"file:///{path}?type=csv&watchFile=no"
             
+            vlayer = QgsVectorLayer(uri, "Shadow Statistics", "delimitedtext")  
+            if vlayer.isValid():
+                context.project().addMapLayer(vlayer)
         return self.results
 
     def name(self):
