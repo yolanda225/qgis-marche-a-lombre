@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 try:
     import pvlib
     HAS_PVLIB = True
-except ImportError:
+except (ImportError, ValueError, RuntimeError, OSError) as e:
+    print(f"PVLib import failed ({e}).")
     HAS_PVLIB = False
 
 class TrailPoint:
