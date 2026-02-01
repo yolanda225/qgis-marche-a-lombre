@@ -6,6 +6,9 @@ __pycache__/
 # environment
 .venv
 
+# built documentation
+help/build/
+
 # plugin builder
 README.txt
 README.html

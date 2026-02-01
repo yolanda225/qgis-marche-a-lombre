@@ -33,6 +33,7 @@ __revision__ = '$Format:%H$'
 import os
 import sys
 import inspect
+import webbrowser
 
 from qgis.core import QgsProcessingAlgorithm, QgsApplication
 from .marche_a_lombre_provider import MarcheALOmbreProvider
@@ -67,13 +68,27 @@ class MarcheALOmbrePlugin(object):
                                 u"Marche à l'ombre", 
                                 self.iface.mainWindow())
         self.action.triggered.connect(self.run)
+        self.help_action = QAction(u"Help", self.iface.mainWindow())
+        self.help_action.triggered.connect(self.open_help)
+
         self.iface.addPluginToMenu(u"&MarcheALOmbre", self.action)
+        self.iface.addPluginToMenu(u"&MarcheALOmbre", self.help_action)
         self.iface.addToolBarIcon(self.action)
 
     def unload(self):
         QgsApplication.processingRegistry().removeProvider(self.provider)
         self.iface.removePluginMenu(u"&MarcheALOmbre", self.action)
+        self.iface.removePluginMenu(u"&MarcheALOmbre", self.help_action)
         self.iface.removeToolBarIcon(self.action)
+
+    def open_help(self):
+        """Opens the documentation in a web browser"""
+        help_path = os.path.join(cmd_folder, 'help', 'build', 'html', 'index.html')
+        if os.path.exists(help_path):
+             webbrowser.open(f"file://{help_path}")
+        else:
+             # Fallback if local help isn't built
+             webbrowser.open("https://github.com/yolanda225/qgis-marche-a-lombre")
 
     def run(self):
         processing.execAlgorithmDialog("marchealombre:marche_a_lombre")

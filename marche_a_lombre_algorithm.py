@@ -460,6 +460,28 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             if vlayer.isValid():
                 context.project().addMapLayer(vlayer)
         return self.results
+    
+    def helpUrl(self):
+        """
+        Returns the URL to the help page
+        """
+        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
+        help_path = os.path.join(cmd_folder, 'help', 'build', 'html', 'index.html')
+        
+        if os.path.exists(help_path):
+            return "file://" + help_path
+        
+        # Fallback if local help isn't built yet
+        return "https://github.com/yolanda225/qgis-marche-a-lombre"
+
+    def shortHelpString(self):
+        """
+        Returns a brief description of the algorithm
+        (appears in the right-hand panel of the dialog)
+        """
+        return self.tr("This algorithm calculates the shady and sunny portions of a trail "
+                       "based on LiDAR HD data (MNS) and the sun's position at the time "
+                       "you are physically at each point on the hike.")
 
     def name(self):
         """
