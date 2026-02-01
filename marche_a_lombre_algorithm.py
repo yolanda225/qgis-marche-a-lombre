@@ -45,6 +45,7 @@ from qgis.core import (QgsProcessing,
                         QgsProcessingParameterDateTime,
                         QgsProcessingParameterNumber,
                         QgsProcessingParameterPoint,
+                        QgsProcessingParameterBoolean,
                         QgsPoint,
                         QgsProcessingException,
                         QgsProcessingParameterRasterDestination,
@@ -93,6 +94,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     DEPARTURE_TIME = 'DEPARTURE_TIME'
     HIKING_SPEED = 'HIKING_SPEED'
     PICNIC_POINT = 'PICNIC_POINT'
+    REVERSE_DIRECTION = 'REVERSE_DIRECTION'
+    BUFFER_MODE = 'BUFFER_MODE'
     OUTPUT_POINTS = 'OUTPUT_POINTS'
     HILLSHADE = 'HILLSHADE'
     OUTPUT_CSV = 'OUTPUT_CSV'
@@ -136,6 +139,22 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 self.PICNIC_POINT,
                 self.tr('Picnic Break Location (1h stop)'),
                 optional=True  # Optional: user might not want a break
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                self.REVERSE_DIRECTION,
+                self.tr('Reverse Trail Direction (Finish to Start)'),
+                defaultValue=False
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                self.BUFFER_MODE,
+                self.tr('Calculate with Buffer (Center, Left 10m, Right 10m)'),
+                defaultValue=False
             )
         )
 
@@ -193,6 +212,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
+        reverse_direction = self.parameterAsBool(parameters, self.REVERSE_DIRECTION, context)
+        buffer_mode = self.parameterAsBool(parameters, self.BUFFER_MODE, context)
         csv_path = self.parameterAsFileOutput(parameters, self.OUTPUT_CSV, context)
 
         # Compute the number of steps to display within the progress bar and
@@ -210,13 +231,16 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
 
         trail = Trail(
-            max_sep=20,
+            max_sep=10,
             speed=speed, 
             source_crs=source_crs, 
             target_crs=target_crs, 
             transform_context=context.transformContext()
         )
-        trail.process_trail(source_tracks=source, start_time=departure_utc, break_point=picnic_point)
+        trail.process_trail(source_tracks=source, 
+                            start_time=departure_utc, 
+                            break_point=picnic_point, 
+                            reverse=reverse_direction)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
         # Generate a temporary file path for the MNT

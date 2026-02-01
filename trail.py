@@ -34,7 +34,17 @@ class Trail:
         self.trail_points = []
         self.extent = QgsRectangle()
 
-    def process_trail(self, source_tracks, start_time, break_point):
+    def reverse_trail(self, geometry):
+        """
+        Reverses the direction of the linestring
+        """
+        nodes = geometry.asPolyline()
+        if nodes:
+            nodes.reverse()
+            return QgsGeometry.fromPolylineXY(nodes)
+        return geometry
+
+    def process_trail(self, source_tracks, start_time, break_point, reverse=False):
         self.trail_points = []
         total_dist = 0.0
         
@@ -61,6 +71,9 @@ class Trail:
                 
                 if not transformed_vertices:
                     continue
+
+                if reverse:
+                    transformed_vertices.reverse()
 
                 # Rebuild geometry in Lambert-93
                 new_geom = QgsGeometry.fromPolylineXY(transformed_vertices)
