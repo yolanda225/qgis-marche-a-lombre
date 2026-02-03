@@ -240,7 +240,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         trail.process_trail(source_tracks=source, 
                             start_time=departure_utc, 
                             break_point=picnic_point, 
-                            reverse=reverse_direction)
+                            reverse=reverse_direction,
+                            buffer=buffer_mode)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
         # Generate a temporary file path for the MNT

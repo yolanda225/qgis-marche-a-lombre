@@ -47,6 +47,7 @@ class Trail:
     def process_trail(self, source_tracks, start_time, break_point, reverse=False):
         self.trail_points = []
         total_dist = 0.0
+        center_points = []
         
         for feature in source_tracks.getFeatures():
             geom = feature.geometry()
@@ -107,9 +108,115 @@ class Trail:
                         datetime=current_time
                     )
                     
-                    self.trail_points.append(tp)
+                    center_points.append(tp)
                     prev_pt = pt_l93
 
+        if not center_points:
+            raise Exception("No trail points could be processed.")
+        
+        if break_point:
+            # Find the closest point to break location
+            closest_idx = 0
+            min_dist = float('inf')
+            
+            for i, tp in enumerate(center_points):
+                # Calculate distance
+                dist = math.sqrt((tp.x - break_point.x())**2 + (tp.y - break_point.y())**2)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_idx = i
+            
+            # Add 1 hour to all points after the break
+            if min_dist < 500: # only apply if the point is somewhat near the trail
+                print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
+                for i in range(closest_idx, len(center_points)):
+                    tp = self.center_points[i]
+                    tp.datetime = tp.datetime.addSecs(3600)
+                    
+                    # Recalculate solar position for the new time
+                    tp.solar_pos = tp.calc_solar_pos(tp.datetime)
+            else:
+                 print(f"Break point too far from trail ({min_dist:.1f}m). Ignored.")
+        
+        # Add center points to main list
+        self.trail_points.extend(center_points)
+
+        # Generate Buffer trails
+        if buffer:
+            left_points = []
+            right_points = []
+            
+            offset_dist = 10.0 # meters
+            
+            for i in range(len(center_points)):
+                current_tp = center_points[i]
+                
+                # Determine direction
+                p1 = current_tp
+                p2 = None
+                
+                if i < len(center_points) - 1:
+                    p2 = center_points[i+1]
+                elif i > 0:
+                    p2 = current_tp
+                    p1 = center_points[i-1]
+                else:
+                    continue
+                
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
+                length = math.sqrt(dx*dx + dy*dy)
+                
+                if length == 0:
+                    ux, uy = 0, 0
+                else:
+                    ux, uy = dx/length, dy/length
+                
+                # Normal Vectors (Perpendicular to path)
+                # Left Normal: (-uy, ux)
+                # Right Normal: (uy, -ux)
+                
+                # Left point
+                lx = current_tp.x + (offset_dist * (-uy))
+                ly = current_tp.y + (offset_dist * (ux))
+                
+                # Convert to Lat/Lon
+                try:
+                    l_geo = self.to_wgs84.transform(QgsPointXY(lx, ly))
+                    
+                    tp_left = TrailPoint(
+                        x=lx, y=ly, z=0,
+                        lat=l_geo.y(), lon=l_geo.x(),
+                        datetime=current_tp.datetime
+                    )
+                    tp_left.trail_type = "Left"
+                    tp_left.solar_pos = current_tp.solar_pos
+                    left_points.append(tp_left)
+                except:
+                    pass
+
+                # Right point
+                rx = current_tp.x + (offset_dist * (uy))
+                ry = current_tp.y + (offset_dist * (-ux))
+                
+                try:
+                    r_geo = self.to_wgs84.transform(QgsPointXY(rx, ry))
+                    
+                    tp_right = TrailPoint(
+                        x=rx, y=ry, z=0,
+                        lat=r_geo.y(), lon=r_geo.x(),
+                        datetime=current_tp.datetime
+                    )
+                    tp_right.trail_type = "Right"
+                    tp_right.solar_pos = current_tp.solar_pos
+                    right_points.append(tp_right)
+                except:
+                    pass
+
+            self.trail_points.extend(left_points)
+            self.trail_points.extend(right_points)
+
+        # Calculate extent
         if self.trail_points:
             temp_points = [QgsPointXY(tp.x, tp.y) for tp in self.trail_points]
             
@@ -121,30 +228,6 @@ class Trail:
             print(f"Success! Trail Extent: {self.extent.toString()}")
         else:
             raise Exception("No trail points could be processed.")
-        
-        if break_point and self.trail_points:
-            # Find the closest point to break location
-            closest_idx = 0
-            min_dist = float('inf')
-            
-            for i, tp in enumerate(self.trail_points):
-                # Calculate distance
-                dist = math.sqrt((tp.x - break_point.x())**2 + (tp.y - break_point.y())**2)
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_idx = i
-            
-            # Add 1 hour to all points after the break
-            if min_dist < 500: # only apply if the point is somewhat near the trail
-                print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
-                for i in range(closest_idx, len(self.trail_points)):
-                    tp = self.trail_points[i]
-                    tp.datetime = tp.datetime.addSecs(3600)
-                    
-                    # Recalculate solar position for the new time
-                    tp.solar_pos = tp.calc_solar_pos(self.trail_points[i].datetime)
-            else:
-                 print(f"Break point too far from trail ({min_dist:.1f}m). Ignored.")
         
     def sample_elevation(self, mnt_path):
         """
