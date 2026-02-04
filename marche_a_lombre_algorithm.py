@@ -94,6 +94,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     DEPARTURE_TIME = 'DEPARTURE_TIME'
     HIKING_SPEED = 'HIKING_SPEED'
     PICNIC_POINT = 'PICNIC_POINT'
+    PICNIC_DURATION = 'PICNIC_DURATION'
     REVERSE_DIRECTION = 'REVERSE_DIRECTION'
     BUFFER_MODE = 'BUFFER_MODE'
     OUTPUT_POINTS = 'OUTPUT_POINTS'
@@ -139,6 +140,17 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 self.PICNIC_POINT,
                 self.tr('Picnic Break Location (1h stop)'),
                 optional=True  # Optional: user might not want a break
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                self.PICNIC_DURATION,
+                self.tr('Picnic Duration (minutes)'),
+                type=QgsProcessingParameterNumber.Integer,
+                defaultValue=60,
+                minValue=0,
+                optional=True
             )
         )
 
@@ -212,6 +224,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
+        picnic_duration = self.parameterAsDouble(parameters, self.PICNIC_DURATION, context)
         reverse_direction = self.parameterAsBool(parameters, self.REVERSE_DIRECTION, context)
         buffer_mode = self.parameterAsBool(parameters, self.BUFFER_MODE, context)
         csv_path = self.parameterAsFileOutput(parameters, self.OUTPUT_CSV, context)
@@ -239,6 +252,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         trail.process_trail(source_tracks=source, 
                             start_time=departure_utc, 
                             break_point=picnic_point, 
+                            picnic_duration=picnic_duration,
                             reverse=reverse_direction,
                             buffer=buffer_mode)
 

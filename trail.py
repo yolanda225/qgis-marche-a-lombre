@@ -52,7 +52,7 @@ class Trail:
             return QgsGeometry.fromPolylineXY(nodes)
         return geometry
 
-    def process_trail(self, source_tracks, start_time, break_point, reverse=False, buffer=False):
+    def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False):
         """Processes input GPX source tracks into a list of TrailPoint objects
 
         Args:
@@ -168,8 +168,8 @@ class Trail:
             if min_dist < 500: # only apply if the point is somewhat near the trail
                 print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
                 for i in range(closest_idx, len(center_points)):
-                    tp = self.center_points[i]
-                    tp.datetime = tp.datetime.addSecs(3600)
+                    tp = center_points[i]
+                    tp.datetime = tp.datetime.addSecs(int(60*picnic_duration))
                     
                     # Recalculate solar position for the new time
                     tp.solar_pos = tp.calc_solar_pos(tp.datetime)
