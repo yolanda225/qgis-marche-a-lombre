@@ -223,7 +223,6 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         ########################## TRAIL PROCESSING #########################
         feedback.pushInfo("Processing trail...")
-        target_crs = QgsCoordinateReferenceSystem("EPSG:2154")
         source_crs = source.sourceCrs()
         if not source_crs.isValid():
             raise QgsProcessingException(
@@ -233,9 +232,9 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         trail = Trail(
             max_sep=10,
             speed=speed, 
-            source_crs=source_crs, 
-            target_crs=target_crs, 
-            transform_context=context.transformContext()
+            source_crs=source_crs,
+            transform_context=context.transformContext(),
+            feedback=feedback
         )
         trail.process_trail(source_tracks=source, 
                             start_time=departure_utc, 
@@ -246,20 +245,21 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         ########################## MNT DOWNLOAD (For Z Values) ##################
         # Generate a temporary file path for the MNT
         mnt_path = QgsProcessingUtils.generateTempFilename('mnt_elevation.tif')
-        
-        downloader = MNSDownloader(feedback=feedback)
-        feedback.pushInfo(f"Downloading MNT for trail elevation data to {mnt_path}...")
+        target_crs = trail.target_crs
+        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
         target_resolution = 0.5
         # Download MNT (mns=False)
         success_mnt = downloader.read_tif(
             extent=trail.extent,
             resolution=target_resolution*2, # less variation in trail elevation so lower resolution necessary
             output_path=mnt_path,
-            is_mns=False 
+            is_mns=False ,
+            input_crs=target_crs
         )
 
         if not success_mnt:
             raise QgsProcessingException("Failed to download MNT data.")
+        feedback.pushInfo(f"Downloading MNT for trail elevation data to {mnt_path}...")
         
         # Integrate MNT into Trail (Sample Z values)
         feedback.pushInfo("Sampling elevation for trail points...")
@@ -267,17 +267,18 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
-        feedback.pushInfo(f"Downloading MNS to {mnt_path}...")
 
-        downloader = MNSDownloader(feedback=feedback)
+        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
         success = downloader.read_tif(
             extent=trail.extent,
             resolution=target_resolution, # meters per pixel
-            output_path=output_path
+            output_path=output_path,
+            input_crs=target_crs
         )
 
         if not success:
             raise QgsProcessingException("Failed to download MNS data.")
+        feedback.pushInfo(f"Downloading MNS to {mnt_path}...")
         
         feedback.pushInfo("Elevation data ready. Proceeding with shade calculation...")
         
@@ -372,8 +373,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         fields.append(QgsField("id", QVariant.Int))
         fields.append(QgsField("status", QVariant.String))     # Sunny / Shady
         fields.append(QgsField("is_shadow", QVariant.Int))     # 0 / 1
-        fields.append(QgsField("x_l93", QVariant.Double))      # Lambert-93 X
-        fields.append(QgsField("y_l93", QVariant.Double))      # Lambert-93 Y
+        fields.append(QgsField("x_proj", QVariant.Double))      # Lambert-93 X
+        fields.append(QgsField("y_proj", QVariant.Double))      # Lambert-93 Y
         fields.append(QgsField("z_mnt", QVariant.Double))      # Altitude
         fields.append(QgsField("latitude", QVariant.Double))   # WGS84 Lat
         fields.append(QgsField("longitude", QVariant.Double))  # WGS84 Lon
@@ -388,7 +389,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             context, 
             fields, 
             QgsWkbTypes.PointZ,
-            target_crs
+            QgsCoordinateReferenceSystem(target_crs)
         )
         self.point_dest_id = point_dest_id
 

@@ -4,20 +4,30 @@ import time
 import math
 import tempfile
 import shutil
-from qgis.core import QgsNetworkAccessManager, QgsRectangle
-from qgis.PyQt.QtCore import QUrl, QCoreApplication
+import xml.etree.ElementTree as ET
+
+from qgis.core import (
+    QgsNetworkAccessManager, 
+    QgsRectangle, 
+    QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
+    QgsProject
+)
+from qgis.PyQt.QtCore import QUrl, QCoreApplication, QEventLoop
 from qgis.PyQt.QtNetwork import QNetworkRequest, QNetworkReply
 from osgeo import gdal, osr
 
 class MNSDownloader:
 
     BASE_URL = "https://data.geopf.fr/wms-r"
+    CAPABILITIES_URL = f"{BASE_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities"
     TILE_SIZE_PX = 4000 
 
     def __init__(self, crs="EPSG:2154", feedback=None):
         self.manager = QgsNetworkAccessManager.instance()
         self.crs = crs
         self.feedback = feedback
+        self._capabilities_xml_cache = None
 
     def log(self, message):
         if self.feedback:
@@ -25,23 +35,191 @@ class MNSDownloader:
         else:
             print(message)
 
-    def read_tif(self, extent, resolution, output_path, is_mns=True):
+    def _fetch_capabilities(self):
         """
-        Downloads MNS/MNT data. 
-        Automatically handles tiling if the requested width/height exceeds 4000px and can't be downloaded at once
+        Fetches WMS Capabilities to find layers dynamically
         """
+        if self._capabilities_xml_cache:
+            return self._capabilities_xml_cache
+
+        self.log("Fetching WMS Capabilities...")
+        request = QNetworkRequest(QUrl(self.CAPABILITIES_URL))
+        request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
+        
+        reply = self.manager.get(request)
+        
+        loop = QEventLoop()
+        reply.finished.connect(loop.quit)
+        loop.exec_()
+        
+        if reply.error() != QNetworkReply.NoError:
+            raise Exception(f"Capabilities failed: {reply.errorString()}")
+
+        content = reply.readAll()
+        self._capabilities_xml_cache = ET.fromstring(content)
+        return self._capabilities_xml_cache
+
+    def get_layer_candidates(self, wgs84_rect, is_mns=True):
+        """
+        Parses capabilities to find the best layer for the location
+        """
+        try:
+            root = self._fetch_capabilities()
+        except Exception as e:
+            self.log(f"Error fetching capabilities: {e}")
+            return []
+
+        ns = {'wms': 'http://www.opengis.net/wms'}
+        candidates = []
+        
+        if is_mns:
+            search_type = "MNS"
+            fallback_lidar_global = "IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.WGS84G"
+            fallback_highres = "ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES.MNS"
+        else:
+            search_type = "MNT"
+            fallback_lidar_global = "IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.WGS84G"
+            fallback_highres = "ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES"
+
+        for layer in root.findall('.//wms:Layer', ns):
+            name_elem = layer.find('wms:Name', ns)
+            if name_elem is None: continue
+            name = name_elem.text
+            
+            if "SHADOW" in name: continue
+
+            geo_bbox = layer.find('wms:EX_GeographicBoundingBox', ns)
+            if geo_bbox is None: continue
+
+            try:
+                w = float(geo_bbox.find('wms:westBoundLongitude', ns).text)
+                e = float(geo_bbox.find('wms:eastBoundLongitude', ns).text)
+                s = float(geo_bbox.find('wms:southBoundLatitude', ns).text)
+                n = float(geo_bbox.find('wms:northBoundLatitude', ns).text)
+                
+                layer_rect = QgsRectangle(w, s, e, n)
+
+                # Check if the requested center is inside the layer availability
+                if not layer_rect.contains(wgs84_rect.center()):
+                    continue
+                    
+                score = 0
+                if search_type in name and "LIDAR-HD" in name and "WGS84G" not in name:
+                    score = 1000 
+                elif name == fallback_lidar_global:
+                    score = 500
+                elif name == fallback_highres:
+                    score = 100
+
+                if score == 0: continue
+                
+                candidates.append({'name': name, 'score': score})
+            except:
+                continue
+
+        return sorted(candidates, key=lambda x: x['score'], reverse=True)
+
+    def validate_raster_content(self, file_path):
+        """
+        Validation: Reading the file to ensure it's not truncated
+        """
+        try:
+            if os.path.getsize(file_path) < 1000:
+                return False, "File too small (< 1KB)"
+
+            with open(file_path, 'rb') as f:
+                header = f.read(512)
+                if b"ServiceException" in header or b"<?xml" in header:
+                    return False, "Contains WMS XML Error"
+
+            gdal.PushErrorHandler('CPLQuietErrorHandler') 
+            ds = gdal.Open(file_path)
+            
+            if not ds:
+                gdal.PopErrorHandler()
+                return False, "GDAL could not open file"
+            
+            band = ds.GetRasterBand(1)
+            try:
+                data = band.ReadAsArray()
+            except Exception as e:
+                ds = None
+                gdal.PopErrorHandler()
+                return False, f"File Truncated/Corrupt: {str(e)}"
+            
+            if data is None:
+                ds = None
+                gdal.PopErrorHandler()
+                return False, "ReadAsArray returned None"
+
+            mn = data.min()
+            mx = data.max()
+            ds = None 
+            gdal.PopErrorHandler()
+
+            if mn <= -9000 and mx <= -9000:
+                return False, f"All NoData (Min:{mn} Max:{mx})"
+            
+            if mn == mx:
+                 return False, f"Flat Data (Val:{mn})"
+
+            return True, "Valid"
+
+        except Exception as e:
+            return False, f"Validation Exception: {str(e)}"
+
+    def read_tif(self, extent, resolution, output_path, is_mns=True, input_crs="EPSG:4326"):
+        """
+        Downloads the MNS/MNT data in the input crs
+        """
+        source_ref = QgsCoordinateReferenceSystem(input_crs)
+        wgs84_ref = QgsCoordinateReferenceSystem("EPSG:4326")
+        
+        tr_to_wgs84 = QgsCoordinateTransform(source_ref, wgs84_ref, QgsProject.instance())
+        wgs84_extent = tr_to_wgs84.transformBoundingBox(extent)
+
+        # Search available layers using WGS84 extent
+        candidates = self.get_layer_candidates(wgs84_extent, is_mns)
+
+        if not candidates:
+            # Default based on detected CRS to avoid "Metropole" layer in DOM-TOM
+            if "2154" in self.crs:
+                default = "IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93"
+            else:
+                # Use the generic WGS84G layer for DOM-TOM if specific one isn't found
+                default = "IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.WGS84G"
+            
+            self.log(f"No candidates found. Using default: {default}")
+            candidates = [{'name': default}]
+
+        # Calculate size in pixels based on the projected extent
         width = int(extent.width() / resolution)
         height = int(extent.height() / resolution)
-        # Check if the request is small enough for a single download
-        if width <= self.TILE_SIZE_PX and height <= self.TILE_SIZE_PX:
-            return self._download_single_tile(extent, width, height, output_path, is_mns)
+        
+        for i, cand in enumerate(candidates):
+            layer_name = cand['name']
+            self.log(f"Attempting layer {layer_name}...")
 
-        # If too big switch to tiled download
-        self.log(f"Request size ({width}x{height}) exceeds limit. Switching to tiled download...")
+            success = False
+            # Check if the request is small enough for a single download
+            if width <= self.TILE_SIZE_PX and height <= self.TILE_SIZE_PX:
+                success = self._download_single_tile(extent, width, height, output_path, layer_name)
+            else:
+                # If too big switch to tiled download
+                self.log(f"Large request ({width}x{height}). Switching to tiled download...")
+                success = self._download_tiled(extent, resolution, width, height, output_path, layer_name)
 
-        return self._download_tiled(extent, resolution, width, height, output_path, is_mns)
+            if success:
+                is_valid, msg = self.validate_raster_content(output_path)
+                if is_valid:
+                    self.log(f"Success: {msg}")
+                    return True
+                else:
+                    self.log(f"Layer {layer_name} INVALID: {msg}")
+        
+        return False
 
-    def _download_tiled(self, extent, resolution, total_w, total_h, output_path, is_mns):
+    def _download_tiled(self, extent, resolution, total_w, total_h, output_path, layer_name):
         """
         Splits the extent into chunks of max 4000px, downloads them, and merges them
         """
@@ -82,7 +260,7 @@ class MNSDownloader:
                     self.log(f"Downloading tile {i+1},{j+1} / {rows},{cols} ({col_width_px}x{row_height_px})...")
 
                     success = self._download_single_tile(
-                        tile_extent, col_width_px, row_height_px, tile_path, is_mns
+                        tile_extent, col_width_px, row_height_px, tile_path, layer_name
                     )
                     
                     if not success:
@@ -112,14 +290,10 @@ class MNSDownloader:
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-    def _download_single_tile(self, extent, width, height, output_path, is_mns=True):
+    def _download_single_tile(self, extent, width, height, output_path, layer_name):
         """
         Requests a single tile from IGN Wep Map Service
         """
-        if is_mns:
-            layer_name = "IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93"
-        else:
-            layer_name = "IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93"
             
         params = [
             f"SERVICE=WMS",
@@ -171,6 +345,12 @@ class MNSDownloader:
             with open(output_path, 'wb') as f:
                 f.write(content)
             
+            # Validation Step
+            is_valid, status_msg = self.validate_raster_content(output_path)
+            if not is_valid:
+                self.log(f"Downloaded file validation failed: {status_msg}")
+                return False
+            
             self._embed_georeferencing(output_path, extent, width, height)
             # self.log(f"Saved to {output_path}")
             return True
@@ -187,6 +367,10 @@ class MNSDownloader:
         ds = gdal.Open(tif_path, 1)
         if ds is None:
             raise Exception("Could not open file with GDAL.")
+        
+        band = ds.GetRasterBand(1)
+        if band:
+            band.SetNoDataValue(-9999.0)
 
         x_res = (extent.xMaximum() - extent.xMinimum()) / width
         y_res = (extent.yMaximum() - extent.yMinimum()) / height

@@ -4,35 +4,43 @@ from qgis.core import (QgsCoordinateTransform, QgsPointXY, QgsGeometry,
                        QgsRectangle, QgsCoordinateReferenceSystem, QgsProject,
                        QgsRasterLayer)
 from .trail_point import TrailPoint
+from .geo_definitions import REGIONS, MANUAL_DEFS
 
 class Trail:
-    def __init__(self, max_sep, speed, source_crs, target_crs, transform_context):
+    def __init__(self, max_sep, speed, source_crs, transform_context, feedback=None):
         self.speed = (5/18) * speed # km/h to m/s
         self.max_sep = max_sep
         self.src = source_crs
         if not self.src.isValid():
             self.src = QgsCoordinateReferenceSystem("EPSG:4326")
-        self.dest = QgsCoordinateReferenceSystem(target_crs)
-        self.transform = QgsCoordinateTransform(self.src, self.dest, transform_context)
+        self.transform_context = transform_context
         self.wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
-        self.to_wgs84 = QgsCoordinateTransform(self.dest, self.wgs84, transform_context)
-
-        # Manually define Lambert-93 if missing grids on Linux by using its raw Proj4 string
-        if not self.transform.isValid():
-            print("WARNING: Standard EPSG:2154 failed. Switching to Manual Definition (Bypass Mode).")
-            
-            # Raw mathematical definition of Lambert-93
-            lambert_93_manual = "+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=700000 +y_0=6600000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
-            
-            self.dest = QgsCoordinateReferenceSystem.fromProj4(lambert_93_manual)
-            self.transform = QgsCoordinateTransform(self.src, self.dest, QgsProject.instance())
-            self.transform.setBallparkTransformsAreAppropriate(True)
-
-        if not self.transform.isValid():
-             raise Exception("CRITICAL: Lambert-93 could not be initialized even with manual definition.")
-
         self.trail_points = []
         self.extent = QgsRectangle()
+        self.feedback = feedback
+
+    def log(self, message):
+        if self.feedback:
+            self.feedback.pushInfo(message)
+        else:
+            print(message)
+
+    def _determine_best_crs(self, wgs84_extent):
+        """
+        Check which region contains the center of the extent
+        """
+        center = wgs84_extent.center()
+        lon = center.x()
+        lat = center.y()
+
+        for name, data in REGIONS.items():
+            b = data['bbox']
+            # Bounding box check
+            if b[0] <= lon <= b[2] and b[1] <= lat <= b[3]:
+                return data['epsg'], name
+        
+        # Default to France
+        return "EPSG:2154", "France_Metropole (Default)"
 
     def reverse_trail(self, geometry):
         """
@@ -44,8 +52,38 @@ class Trail:
             return QgsGeometry.fromPolylineXY(nodes)
         return geometry
 
-    def process_trail(self, source_tracks, start_time, break_point, reverse=False):
-        self.trail_points = []
+    def process_trail(self, source_tracks, start_time, break_point, reverse=False, buffer=False):
+        """Processes input GPX source tracks into a list of TrailPoint objects
+
+        Args:
+            source_tracks (QgsProcessingFeatureSource]): Tracks from the gpx trail
+            start_time (QDateTime): Hikers time of departure
+            break_point ( QgsPointXY): Coordinates of an optional picnic point
+            reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.
+            buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.
+        """
+
+        self.target_crs, region_name = self._determine_best_crs(source_tracks.sourceExtent())
+        self.log(f"Detected Region: {region_name}. Switching to CRS: {self.target_crs}")
+        dest_crs = QgsCoordinateReferenceSystem(self.target_crs)
+        self.transform = QgsCoordinateTransform(self.src, dest_crs, self.transform_context)
+        self.to_wgs84 = QgsCoordinateTransform(dest_crs, self.wgs84, self.transform_context)
+
+        # Check if standard transformation failed if missing grids on machine
+        auth_id = dest_crs.authid()
+        if not self.transform.isValid() and auth_id in MANUAL_DEFS:
+            print(f"WARNING: Standard {auth_id} failed. Switching to Manual Definition.")
+            # Create CRS from raw Proj4 string
+            dest_crs = QgsCoordinateReferenceSystem.fromProj4(MANUAL_DEFS[auth_id])
+            # Redo tranformations
+            self.transform = QgsCoordinateTransform(self.src, dest_crs, QgsProject.instance())
+            self.transform.setBallparkTransformsAreAppropriate(True)
+            self.to_wgs84 = QgsCoordinateTransform(dest_crs, self.wgs84, QgsProject.instance())
+            self.to_wgs84.setBallparkTransformsAreAppropriate(True)
+
+        if not self.transform.isValid():
+             raise Exception(f"CRITICAL: Transformation to {dest_crs.authid()} could not be initialized.")
+        
         total_dist = 0.0
         center_points = []
         
