@@ -428,11 +428,21 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             self.OUTPUT: output_path,
             self.OUTPUT_POINTS: point_dest_id,
             self.LOW_RES_MNS: low_res_path,
-            self.OUTPUT_CSV: csv_path
+            self.OUTPUT_CSV: csv_path,
+            'detected_crs': target_crs
         }
         return self.results
     
     def postProcessAlgorithm(self, context, feedback):
+        # Set project CRS to match the detected region
+        detected_crs_str = self.results.get('detected_crs')
+        if detected_crs_str:
+            detected_crs = QgsCoordinateReferenceSystem(detected_crs_str)
+            project = context.project()
+            
+            if detected_crs.isValid() and project.crs().authid() != detected_crs.authid():
+                feedback.pushInfo(f"Changing project CRS from {project.crs().authid()} to {detected_crs.authid()} to match detected region")
+                project.setCrs(detected_crs)
         # style the output trail depending on Sun/Shadow
         layer = QgsProcessingUtils.mapLayerFromString(self.point_dest_id, context)
         
