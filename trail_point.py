@@ -88,11 +88,6 @@ class TrailPoint:
             diff_az = abs(math.degrees(azimuth_rad) - azimuth_pvlib)
             if diff_az > 180:
                 diff_az = 360 - diff_az  # Handle 360 wrap-around
-
-            if diff_elev < 0.01 and diff_az < 0.01:
-                print(f"Validation successful (Diffs: Elev={diff_elev:.4f}, Az={diff_az:.4f})")
-            else:
-                print(f"VALIDATION FAILED! (Diffs: Elev={diff_elev:.4f}, Az={diff_az:.4f})")
             return (math.radians(elevation_pvlib), math.radians(azimuth_pvlib))
 
         return (elevation_rad, azimuth_rad)
