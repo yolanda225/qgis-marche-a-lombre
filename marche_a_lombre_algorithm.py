@@ -225,6 +225,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
         picnic_duration = self.parameterAsDouble(parameters, self.PICNIC_DURATION, context)
+        picnic_point_crs = self.parameterAsPointCrs(parameters, self.PICNIC_POINT, context)
         reverse_direction = self.parameterAsBool(parameters, self.REVERSE_DIRECTION, context)
         buffer_mode = self.parameterAsBool(parameters, self.BUFFER_MODE, context)
         csv_path = self.parameterAsFileOutput(parameters, self.OUTPUT_CSV, context)
@@ -254,7 +255,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                             break_point=picnic_point, 
                             picnic_duration=picnic_duration,
                             reverse=reverse_direction,
-                            buffer=buffer_mode)
+                            buffer=buffer_mode,
+                            project_crs=picnic_point_crs)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
         # Generate a temporary file path for the MNT

@@ -53,7 +53,7 @@ class Trail:
             return QgsGeometry.fromPolylineXY(nodes)
         return geometry
 
-    def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False):
+    def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False, project_crs=None):
         """Processes input GPX source tracks into a list of TrailPoint objects
 
         Args:
@@ -62,6 +62,7 @@ class Trail:
             break_point ( QgsPointXY): Coordinates of an optional picnic point
             reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.
             buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.
+            project_crs (QgsCoordinateReferenceSystem, optional): The CRS for transforming break_point. Defaults to None.
         """
         wgs84_extent = source_tracks.sourceExtent()
         self.center_lat = wgs84_extent.center().y()
@@ -86,6 +87,28 @@ class Trail:
 
         if not self.transform.isValid():
              raise Exception(f"CRITICAL: Transformation to {dest_crs.authid()} could not be initialized.")
+        
+        # Transform break_point from project CRS to target CRS if provided
+        transformed_break_point = None
+        if break_point and project_crs:
+            # Create transformation from project CRS to target CRS
+            project_to_target = QgsCoordinateTransform(project_crs, dest_crs, self.transform_context)
+            
+            # Try manual fallback if standard transformation fails
+            if not project_to_target.isValid():
+                project_auth = project_crs.authid()
+                if project_auth in MANUAL_DEFS and auth_id in MANUAL_DEFS:
+                    print(f"WARNING: Standard transformation {project_auth} -> {auth_id} failed. Using manual fallback.")
+                    project_to_target = QgsCoordinateTransform(project_crs, dest_crs, self.transform_context)
+                    project_to_target.setBallparkTransformsAreAppropriate(True)
+            
+            try:
+                transformed_break_point = project_to_target.transform(break_point)
+                self.log(f"Transformed break point from {project_crs.authid()} to {dest_crs.authid()}")
+                print(f"Break point: {break_point.x():.2f}, {break_point.y():.2f} ({project_crs.authid()}) -> {transformed_break_point.x():.2f}, {transformed_break_point.y():.2f} ({dest_crs.authid()})")
+            except Exception as e:
+                print(f"ERROR: Failed to transform break point: {e}")
+                transformed_break_point = None
         
         total_dist = 0.0
         center_points = []
@@ -155,20 +178,21 @@ class Trail:
         if not center_points:
             raise Exception("No trail points could be processed.")
         
-        if break_point:
+        if transformed_break_point:
             # Find the closest point to break location
             closest_idx = 0
             min_dist = float('inf')
             
             for i, tp in enumerate(center_points):
                 # Calculate distance
-                dist = math.sqrt((tp.x - break_point.x())**2 + (tp.y - break_point.y())**2)
+                dist = math.sqrt((tp.x - transformed_break_point.x())**2 + (tp.y - transformed_break_point.y())**2)
                 if dist < min_dist:
                     min_dist = dist
                     closest_idx = i
             
             # Add 1 hour to all points after the break
-            if min_dist < 500: # only apply if the point is somewhat near the trail
+            self.log(f"Minimum dist to break point: {min_dist}")
+            if min_dist < 5000: # only apply if the point is somewhat near the trail
                 print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
                 for i in range(closest_idx, len(center_points)):
                     tp = center_points[i]
