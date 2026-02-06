@@ -167,8 +167,49 @@ class MNSDownloader:
 
         except Exception as e:
             return False, f"Validation Exception: {str(e)}"
+        
+    def download_dual_quality_mns(self, trail_extent, high_res_path, low_res_path, input_crs, high_res=0.5, low_res=30.0):
+        """Download two MNS, one high quality around the trail and one low resolution with a greater extent for longer shadows
 
-    def read_tif(self, extent, resolution, output_path, is_mns=True, input_crs="EPSG:4326"):
+        Args:
+            trail_extent (QgsRectangle): Extent around the hiking trail
+            high_res_path (str): Path to High-Res MNS
+            low_res_path (str): Path to Low-Res MNS
+            input_crs (str): Coordinate Reference System
+            high_res (float, optional): High resolution. Defaults to 0.5.
+            low_res (float, optional): Low resolution. Defaults to 30.0.
+
+        Returns:
+            bool: True if download successful
+        """
+
+        # High-Res
+        self.read_tif(trail_extent, high_res, high_res_path, input_crs=input_crs)
+
+        # Low-Res (greater extent)
+        source_ref = QgsCoordinateReferenceSystem(input_crs)
+        wgs84_ref = QgsCoordinateReferenceSystem("EPSG:4326")
+        tr = QgsCoordinateTransform(source_ref, wgs84_ref, QgsProject.instance())
+        center_wgs84 = tr.transform(trail_extent.center())
+        trail_lat = center_wgs84.y()
+        buffer_dist = 22000.0 # altitude difference of 2000m with solar elevation of 5° casts 22km shadow
+        buffer_n = buffer_dist
+        buffer_s = buffer_dist
+        if trail_lat > 23.4: # north/south buffer not necessary for high/low lat
+            buffer_n = 0
+        if trail_lat < -23.4:
+            buffer_s = 0
+
+        buffer_dist = 22000.0 
+        horizon_extent = QgsRectangle(
+            trail_extent.xMinimum() - buffer_dist,
+            trail_extent.yMinimum() - buffer_s,
+            trail_extent.xMaximum() + buffer_dist,
+            trail_extent.yMaximum() + buffer_n
+        )
+        return self.read_tif(horizon_extent, low_res, low_res_path, input_crs=input_crs)
+
+    def read_tif(self, extent, resolution, output_path, input_crs, is_mns=True):
         """
         Downloads the MNS/MNT data in the input crs
         """

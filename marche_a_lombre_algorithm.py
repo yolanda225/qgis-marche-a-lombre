@@ -98,7 +98,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     REVERSE_DIRECTION = 'REVERSE_DIRECTION'
     BUFFER_MODE = 'BUFFER_MODE'
     OUTPUT_POINTS = 'OUTPUT_POINTS'
-    HILLSHADE = 'HILLSHADE'
+    LOW_RES_MNS = 'LOW_RES_MNS'
     OUTPUT_CSV = 'OUTPUT_CSV'
 
     def initAlgorithm(self, config):
@@ -197,8 +197,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         self.addParameter(
             QgsProcessingParameterRasterDestination(
-                self.HILLSHADE,
-                self.tr('Hillshade')
+                self.LOW_RES_MNS,
+                self.tr('Low Resolution MNS (Horizon)')
             )
         )
 
@@ -267,13 +267,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             extent=trail.extent,
             resolution=target_resolution*2, # less variation in trail elevation so lower resolution necessary
             output_path=mnt_path,
-            is_mns=False ,
-            input_crs=target_crs
+            input_crs=target_crs,
+            is_mns=False  
         )
 
         if not success_mnt:
             raise QgsProcessingException("Failed to download MNT data.")
-        feedback.pushInfo(f"Downloading MNT for trail elevation data to {mnt_path}...")
+        feedback.pushInfo(f"Downloading MNT for trail elevation data...")
         
         # Integrate MNT into Trail (Sample Z values)
         feedback.pushInfo("Sampling elevation for trail points...")
@@ -281,20 +281,16 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
-
-        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
-        success = downloader.read_tif(
-            extent=trail.extent,
-            resolution=target_resolution, # meters per pixel
-            output_path=output_path,
-            input_crs=target_crs
-        )
-
-        if not success:
-            raise QgsProcessingException("Failed to download MNS data.")
-        feedback.pushInfo(f"Downloading MNS to {mnt_path}...")
+        low_res_path = self.parameterAsOutputLayer(parameters, self.LOW_RES_MNS, context)
         
-        feedback.pushInfo("Elevation data ready. Proceeding with shade calculation...")
+        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
+        downloader.download_dual_quality_mns(
+            trail_extent=trail.extent,
+            high_res_path=output_path,
+            low_res_path=low_res_path,
+            input_crs=target_crs,
+            high_res=target_resolution, # meters per pixel
+        )
         
         # Open MNS raster with GDAL
         ds = gdal.Open(output_path)
@@ -311,14 +307,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         feedback.pushInfo("Calculating shadows...")
  
         calculator = ShadowCalculator(
-            mns_data=mns_array,
-            geo_transform=geo_transform,
-            resolution=target_resolution
+            high_res_path=output_path,
+            low_res_path=low_res_path
         )
         
         shadow_results = calculator.calculate_shadows(
             trail_points=trail.trail_points,
-            max_dist_m=1000
+            max_dist_m=20000
         )
 
         ########################## CALCULATE STATISTICS ############################
@@ -348,38 +343,6 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                     f.write(f"{duration_min:.1f},{percent_shady:.2f},{percent_sunny:.2f},{time_shady},{time_sunny},{shady_points},{sunny_points},{total_points}\n")
             except Exception as e:
                 feedback.reportError(f"Failed to write CSV: {e}")
-
-        ########################## HILLSHADE CALCULATION ########################
-        feedback.pushInfo("Calculating average sun position for hillshade...")
-
-        # Calculate average azimuth and elevation
-        if trail.trail_points:
-            avg_elev_rad = max(0,sum(tp.solar_pos[0] for tp in trail.trail_points) / len(trail.trail_points)) # Night check
-            avg_az_rad = sum(tp.solar_pos[1] for tp in trail.trail_points) / len(trail.trail_points)
-
-            avg_elev_deg = math.degrees(avg_elev_rad)
-            avg_az_deg = math.degrees(avg_az_rad)
-            
-            feedback.pushInfo(f"Hillshade settings - Azimuth: {avg_az_deg:.1f}°, Elevation: {avg_elev_deg:.1f}°")
-        else:
-            # Fallback if no points
-            avg_az_deg = 315
-            avg_elev_deg = 45
-
-        hillshade_output = self.parameterAsOutputLayer(parameters, self.HILLSHADE, context)
-        params = {
-            'INPUT': output_path,   # MNS
-            'BAND': 1,
-            'Z_FACTOR': 1,
-            'AZIMUTH': avg_az_deg,
-            'ALTITUDE': avg_elev_deg,
-            'OUTPUT': hillshade_output
-        }
-        
-        try:
-            processing.run("gdal:hillshade", params, context=context, feedback=feedback)
-        except Exception as e:
-            feedback.reportError(f"Hillshade creation failed: {e}")
         
         ########################## WRITE OUTPUT POINTS ##########################
         # Define attribute table columns
@@ -456,6 +419,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         self.results = {
             self.OUTPUT: output_path,
             self.OUTPUT_POINTS: point_dest_id,
+            self.LOW_RES_MNS: low_res_path,
             self.OUTPUT_CSV: csv_path
         }
         return self.results
