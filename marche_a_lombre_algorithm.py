@@ -260,7 +260,10 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # Generate a temporary file path for the MNT
         mnt_path = QgsProcessingUtils.generateTempFilename('mnt_elevation.tif')
         target_crs = trail.target_crs
-        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
+        downloader = MNSDownloader(
+            crs=target_crs, 
+            transform_context=context.transformContext(), 
+            feedback=feedback)
         target_resolution = 0.5
         # Download MNT (mns=False)
         success_mnt = downloader.read_tif(
@@ -283,11 +286,16 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
         low_res_path = self.parameterAsOutputLayer(parameters, self.LOW_RES_MNS, context)
         
-        downloader = MNSDownloader(crs=target_crs, feedback=feedback)
+        downloader = MNSDownloader(
+            crs=target_crs,
+            transform_context=context.transformContext(), 
+            feedback=feedback)
+
         downloader.download_dual_quality_mns(
             trail_extent=trail.extent,
             high_res_path=output_path,
             low_res_path=low_res_path,
+            trail_lat=trail.center_lat,
             input_crs=target_crs,
             high_res=target_resolution, # meters per pixel
         )

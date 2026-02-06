@@ -10,12 +10,13 @@ from qgis.core import (
     QgsNetworkAccessManager, 
     QgsRectangle, 
     QgsCoordinateReferenceSystem,
-    QgsCoordinateTransform,
-    QgsProject
+    QgsCoordinateTransform
 )
 from qgis.PyQt.QtCore import QUrl, QCoreApplication, QEventLoop
 from qgis.PyQt.QtNetwork import QNetworkRequest, QNetworkReply
 from osgeo import gdal, osr
+
+from .geo_definitions import MANUAL_DEFS
 
 class MNSDownloader:
 
@@ -23,9 +24,10 @@ class MNSDownloader:
     CAPABILITIES_URL = f"{BASE_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities"
     TILE_SIZE_PX = 4000 
 
-    def __init__(self, crs="EPSG:2154", feedback=None):
+    def __init__(self, crs, transform_context, feedback=None):
         self.manager = QgsNetworkAccessManager.instance()
         self.crs = crs
+        self.transform_context = transform_context
         self.feedback = feedback
         self._capabilities_xml_cache = None
 
@@ -59,7 +61,7 @@ class MNSDownloader:
         self._capabilities_xml_cache = ET.fromstring(content)
         return self._capabilities_xml_cache
 
-    def get_layer_candidates(self, wgs84_rect, is_mns=True):
+    def get_layer_candidates(self, wgs84_point, is_mns=True):
         """
         Parses capabilities to find the best layer for the location
         """
@@ -97,10 +99,9 @@ class MNSDownloader:
                 s = float(geo_bbox.find('wms:southBoundLatitude', ns).text)
                 n = float(geo_bbox.find('wms:northBoundLatitude', ns).text)
                 
-                layer_rect = QgsRectangle(w, s, e, n)
-
-                # Check if the requested center is inside the layer availability
-                if not layer_rect.contains(wgs84_rect.center()):
+                # Check if point is inside the layer
+                px, py = wgs84_point.x(), wgs84_point.y()
+                if not (w <= px <= e and s <= py <= n):
                     continue
                     
                 score = 0
@@ -168,13 +169,14 @@ class MNSDownloader:
         except Exception as e:
             return False, f"Validation Exception: {str(e)}"
         
-    def download_dual_quality_mns(self, trail_extent, high_res_path, low_res_path, input_crs, high_res=0.5, low_res=30.0):
+    def download_dual_quality_mns(self, trail_extent, high_res_path, low_res_path, trail_lat, input_crs, high_res=0.5, low_res=30.0):
         """Download two MNS, one high quality around the trail and one low resolution with a greater extent for longer shadows
 
         Args:
             trail_extent (QgsRectangle): Extent around the hiking trail
             high_res_path (str): Path to High-Res MNS
             low_res_path (str): Path to Low-Res MNS
+            trail_lat (float): latitude of trail_extent center
             input_crs (str): Coordinate Reference System
             high_res (float, optional): High resolution. Defaults to 0.5.
             low_res (float, optional): Low resolution. Defaults to 30.0.
@@ -187,11 +189,6 @@ class MNSDownloader:
         self.read_tif(trail_extent, high_res, high_res_path, input_crs=input_crs)
 
         # Low-Res (greater extent)
-        source_ref = QgsCoordinateReferenceSystem(input_crs)
-        wgs84_ref = QgsCoordinateReferenceSystem("EPSG:4326")
-        tr = QgsCoordinateTransform(source_ref, wgs84_ref, QgsProject.instance())
-        center_wgs84 = tr.transform(trail_extent.center())
-        trail_lat = center_wgs84.y()
         buffer_dist = 22000.0 # altitude difference of 2000m with solar elevation of 5° casts 22km shadow
         buffer_n = buffer_dist
         buffer_s = buffer_dist
@@ -200,7 +197,6 @@ class MNSDownloader:
         if trail_lat < -23.4:
             buffer_s = 0
 
-        buffer_dist = 22000.0 
         horizon_extent = QgsRectangle(
             trail_extent.xMinimum() - buffer_dist,
             trail_extent.yMinimum() - buffer_s,
@@ -216,11 +212,29 @@ class MNSDownloader:
         source_ref = QgsCoordinateReferenceSystem(input_crs)
         wgs84_ref = QgsCoordinateReferenceSystem("EPSG:4326")
         
-        tr_to_wgs84 = QgsCoordinateTransform(source_ref, wgs84_ref, QgsProject.instance())
-        wgs84_extent = tr_to_wgs84.transformBoundingBox(extent)
+        tr_to_wgs84 = QgsCoordinateTransform(source_ref, wgs84_ref, self.transform_context)
+        tr_to_wgs84.setBallparkTransformsAreAppropriate(True)
 
-        # Search available layers using WGS84 extent
-        candidates = self.get_layer_candidates(wgs84_extent, is_mns)
+        center_input = extent.center()
+        center_wgs84 = tr_to_wgs84.transform(center_input)
+
+        auth_id = source_ref.authid()
+        is_identity = (abs(center_input.x() - center_wgs84.x()) < 0.1) and (auth_id != wgs84_ref.authid())
+        
+        if is_identity: # transformation failed
+            if auth_id in MANUAL_DEFS:
+                self.log(f"Switching to Manual Definition for Coordinate Transformation.")
+                # CRS from manual definition
+                source_ref = QgsCoordinateReferenceSystem.fromProj4(MANUAL_DEFS[auth_id])
+                # Redo transform
+                tr_to_wgs84 = QgsCoordinateTransform(source_ref, wgs84_ref, self.transform_context)
+                tr_to_wgs84.setBallparkTransformsAreAppropriate(True)
+                center_wgs84 = tr_to_wgs84.transform(center_input)
+            else:
+                self.log("Warning: Transform returned identity and no manual definition available.")
+
+        # Search available layers using WGS84 center
+        candidates = self.get_layer_candidates(center_wgs84, is_mns)
 
         if not candidates:
             # Default based on detected CRS to avoid "Metropole" layer in DOM-TOM

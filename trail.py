@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import math
 from qgis.core import (QgsCoordinateTransform, QgsPointXY, QgsGeometry, 
-                       QgsRectangle, QgsCoordinateReferenceSystem, QgsProject,
+                       QgsRectangle, QgsCoordinateReferenceSystem,
                        QgsRasterLayer)
 from .trail_point import TrailPoint
 from .geo_definitions import REGIONS, MANUAL_DEFS
@@ -18,6 +18,7 @@ class Trail:
         self.trail_points = []
         self.extent = QgsRectangle()
         self.feedback = feedback
+        self.center_lat = 0.0
 
     def log(self, message):
         if self.feedback:
@@ -62,6 +63,8 @@ class Trail:
             reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.
             buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.
         """
+        wgs84_extent = source_tracks.sourceExtent()
+        self.center_lat = wgs84_extent.center().y()
 
         self.target_crs, region_name = self._determine_best_crs(source_tracks.sourceExtent())
         self.log(f"Detected Region: {region_name}. Switching to CRS: {self.target_crs}")
@@ -76,9 +79,9 @@ class Trail:
             # Create CRS from raw Proj4 string
             dest_crs = QgsCoordinateReferenceSystem.fromProj4(MANUAL_DEFS[auth_id])
             # Redo tranformations
-            self.transform = QgsCoordinateTransform(self.src, dest_crs, QgsProject.instance())
+            self.transform = QgsCoordinateTransform(self.src, dest_crs, self.transform_context)
             self.transform.setBallparkTransformsAreAppropriate(True)
-            self.to_wgs84 = QgsCoordinateTransform(dest_crs, self.wgs84, QgsProject.instance())
+            self.to_wgs84 = QgsCoordinateTransform(dest_crs, self.wgs84, self.transform_context)
             self.to_wgs84.setBallparkTransformsAreAppropriate(True)
 
         if not self.transform.isValid():
