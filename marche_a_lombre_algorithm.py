@@ -230,6 +230,9 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         buffer_mode = self.parameterAsBool(parameters, self.BUFFER_MODE, context)
         csv_path = self.parameterAsFileOutput(parameters, self.OUTPUT_CSV, context)
 
+        if not picnic_point or (picnic_point.x() == 0.0 and picnic_point.y() == 0.0):
+            picnic_point_crs = None
+
         # Compute the number of steps to display within the progress bar and
         # get features from source
         total = 100.0 / source.featureCount() if source.featureCount() else 0
