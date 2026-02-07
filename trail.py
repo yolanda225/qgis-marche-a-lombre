@@ -13,6 +13,16 @@ from .geo_definitions import REGIONS, MANUAL_DEFS
 
 class Trail:
     def __init__(self, max_sep, speed, source_crs, transform_context, feedback=None):
+        """
+        Initializes the Trail
+
+        Args:
+            max_sep (float): Maximum separation distance (in meters) between points after densification
+            speed (float): Average hiking speed in km/h
+            source_crs (QgsCoordinateReferenceSystem): The CRS of the input vector layer
+            transform_context (QgsCoordinateTransformContext): Context for coordinate transformations
+            feedback (QgsProcessingFeedback, optional): Feedback object for reporting logs
+        """
         self.speed = (5/18) * speed # km/h to m/s
         self.max_sep = max_sep
         self.src = source_crs
@@ -26,6 +36,12 @@ class Trail:
         self.center_lat = 0.0
 
     def log(self, message):
+        """
+        Logs a message to the feedback object
+
+        Args:
+            message (str): The message to log
+        """
         if self.feedback:
             self.feedback.pushInfo(message)
         else:
@@ -33,7 +49,13 @@ class Trail:
 
     def _determine_best_crs(self, wgs84_extent):
         """
-        Check which region contains the center of the extent
+        Check which region contains the center of the trail extent
+
+        Args:
+            wgs84_extent (QgsRectangle): The extent of the layer in WGS84.
+
+        Returns:
+            tuple: A tuple containing (epsg_code (str), region_name (str)).
         """
         center = wgs84_extent.center()
         lon = center.x()
@@ -50,7 +72,13 @@ class Trail:
 
     def reverse_trail(self, geometry):
         """
-        Reverses the direction of the linestring
+        Reverses the order of the linestring
+
+        Args:
+            geometry (QgsGeometry): The input linestring geometry
+
+        Returns:
+            QgsGeometry: New linestring with reversed vertices
         """
         nodes = geometry.asPolyline()
         if nodes:
@@ -65,9 +93,13 @@ class Trail:
             source_tracks (QgsProcessingFeatureSource]): Tracks from the gpx trail
             start_time (QDateTime): Hikers time of departure
             break_point ( QgsPointXY): Coordinates of an optional picnic point
+            picnic_duration (float): Duration of the hikers picnic break (minutes)
             reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.
             buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.
             project_crs (QgsCoordinateReferenceSystem, optional): The CRS for transforming break_point. Defaults to None.
+
+        Raises:
+            Exception: If coordinate transformation fails or no valid trail points are generated
         """
         wgs84_extent = source_tracks.sourceExtent()
         self.center_lat = wgs84_extent.center().y()
@@ -301,8 +333,10 @@ class Trail:
         
     def sample_elevation(self, mnt_path):
         """
-        Loads the MNT raster from the given path and updates
-        the z-value of all trail points.
+        Loads the MNT raster from the given path and updates the z-value of all trail points
+
+        Args:
+            mnt_path (str): File path to the MNT raster
         """
         # Load the MNT as a raster layer
         rlayer = QgsRasterLayer(mnt_path, "mnt_sampling")

@@ -16,6 +16,17 @@ except (ImportError, ValueError, RuntimeError, OSError) as e:
 class TrailPoint:
 
     def __init__(self, lon, lat, x, y, z, datetime):
+        """
+        Initializes a TrailPoint and automatically calculates the solar position
+
+        Args:
+            lon (float): Longitude (WGS84)
+            lat (float): Latitude (WGS84)
+            x (float): Projected X coordinate
+            y (float): Projected Y coordinate
+            z (float): Elevation
+            datetime (datetime): Time of arrival
+        """
         self.lon = lon
         self.lat = lat
         self.x = x
@@ -26,7 +37,8 @@ class TrailPoint:
 
     def calc_solar_pos(self, dt):
         """
-        Calculates Solar Azimuth and Elevation for a given place and time
+        Calculates Solar Azimuth and Elevation for a given place and time.
+        Uses pvlib if installed
         
         Args:
             dt (datetime): A datetime object

@@ -30,6 +30,14 @@ class MNSDownloader:
     TILE_SIZE_PX = 4000 
 
     def __init__(self, crs, transform_context, feedback=None):
+        """
+        Initializes the downloader
+
+        Args:
+            crs (str): The epsg string of the target CRS
+            transform_context (QgsCoordinateTransformContext): Context for coordinate transforms
+            feedback (QgsProcessingFeedback, optional): Feedback object for logging
+        """
         self.manager = QgsNetworkAccessManager.instance()
         self.crs = crs
         self.transform_context = transform_context
@@ -45,6 +53,12 @@ class MNSDownloader:
     def _fetch_capabilities(self):
         """
         Fetches WMS Capabilities to find layers dynamically
+
+        Returns:
+            xml.etree.ElementTree.Element: root element of the parsed XML
+
+        Raises:
+            Exception: If the network request fails
         """
         if self._capabilities_xml_cache:
             return self._capabilities_xml_cache
@@ -69,6 +83,14 @@ class MNSDownloader:
     def get_layer_candidates(self, wgs84_point, is_mns=True):
         """
         Parses capabilities to find the best layer for the location
+
+        Args:
+            wgs84_point (QgsPointXY): point to query in WGS84 coordinates
+            is_mns (bool, optional): True -> searches for Surface Models (MNS) 
+                                     False -> searches for Terrain Models (MNT)
+
+        Returns:
+            list[dict]: A list of layer candidates containing 'name' and 'score'.
         """
         try:
             root = self._fetch_capabilities()
@@ -127,7 +149,13 @@ class MNSDownloader:
 
     def validate_raster_content(self, file_path):
         """
-        Validation: Reading the file to ensure it's not truncated
+        Validates the downloaded file by reading it
+
+        Args:
+            file_path (str): Path to the file to check
+
+        Returns:
+            tuple[bool, str]: (isValid, statusMessage)
         """
         try:
             if os.path.getsize(file_path) < 1000:
@@ -189,7 +217,6 @@ class MNSDownloader:
         Returns:
             bool: True if download successful
         """
-
         # High-Res
         self.read_tif(trail_extent, high_res, high_res_path, input_crs=input_crs)
 
@@ -212,7 +239,17 @@ class MNSDownloader:
 
     def read_tif(self, extent, resolution, output_path, input_crs, is_mns=True):
         """
-        Downloads the MNS/MNT data in the input crs
+        Dowloads the MNS/MNT data for a specific extent and resolution
+
+        Args:
+            extent (QgsRectangle): The area to download
+            resolution (float): Pixel resolution in meters
+            output_path (str): File path to save the GeoTIFF
+            input_crs (str): epsg code of the CRS
+            is_mns (bool, optional): True -> MNS (Surface), False -> MNT (Terrain). Defaults to True.
+
+        Returns:
+            bool: True if successful, False otherwise
         """
         source_ref = QgsCoordinateReferenceSystem(input_crs)
         wgs84_ref = QgsCoordinateReferenceSystem("EPSG:4326")
@@ -353,8 +390,7 @@ class MNSDownloader:
     def _download_single_tile(self, extent, width, height, output_path, layer_name):
         """
         Requests a single tile from IGN Wep Map Service
-        """
-            
+        """    
         params = [
             f"SERVICE=WMS",
             f"VERSION=1.3.0",

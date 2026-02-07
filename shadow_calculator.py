@@ -12,7 +12,14 @@ class ShadowCalculator:
     
     def __init__(self, high_res_path, low_res_path):
         """
-        Initialize with paths to High-Res (Trail) and Low-Res (Horizon) MNS files
+        Initialize the calculator with paths to High-Res and Low-Res MNS files
+
+        Args:
+            high_res_path (str): File path to the High Resolution MNS
+            low_res_path (str): File path to the Low Resolution MNS
+
+        Raises:
+            Exception: If a raster file cannot be opened by GDAL
         """
         self.high_ds = gdal.Open(high_res_path)
         if not self.high_ds:
@@ -32,7 +39,17 @@ class ShadowCalculator:
         self.low_rows, self.low_cols = self.low_data.shape
 
     def _to_pixel(self, x, y, gt):
-        """Convert world coords to pixel coords"""
+        """
+        Convert world coordinates to raster pixel coordinates
+
+        Args:
+            x (float): x coordinate
+            y (float): y coordinate
+            gt (tuple): gdal GeoTransform
+
+        Returns:
+            tuple[int, int]: (column, row)
+        """
         col = int((x - gt[0]) / gt[1])
         row = int((y - gt[3]) / gt[5])
         return col, row
@@ -41,8 +58,8 @@ class ShadowCalculator:
         """Draw bresenham line on a raster with given starting point
 
         Args:
-            x0 (int): x value
-            y0 (int): y value
+            x0 (int): start x value
+            y0 (int): start y value
             max_dist_pixels (float): maximum distance in pixels
             azimuth (float): direction angle of line in radians
             rows (int): number of rows in raster
@@ -102,7 +119,7 @@ class ShadowCalculator:
             min_dist_m (float): minimum distance to check (overlap)
 
         Returns:
-            (float[], float): list of angles, furthest distance
+            (float[], float): list of angles, furthest distance checked
         """
         if not index_list:
             return np.array([]), 0.0
@@ -156,7 +173,11 @@ class ShadowCalculator:
         return angles_rad, max_dist
     
     def calculate_shadows(self, trail_points, max_dist_m=20000):
-        """Calculate if trail points are in shadow or sun along a trail
+        """
+        Calculate if trail points are in shadow or sun along a trail.
+        Iterates through every trail point, casts a line in the direction of the sun azimuth,
+        and checks if any obstacle (from High-Res or Low-Res MNS) has an elevation angle
+        greater than the sun's current elevation
 
         Args:
             trail_points [TrailPoint]: trail points 
