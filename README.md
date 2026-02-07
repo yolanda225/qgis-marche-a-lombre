@@ -13,7 +13,7 @@ This plugin analyzes hiking trails to determine which parts will be in shadow or
 - Dynamic layer retrieval from IGNs Web Map Service (https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities)
 - Adjustable hiking speed and picnic break
 - Reversal of trail
-- Buffered calculation (calculation also 10m to the right and left of the trail to )
+- Buffered calculation (calculation also 5m to the right and left of the trail to )
 - Vector output with color-coded trail segments
 - Statistics output (percentage sunny, etc.)
 

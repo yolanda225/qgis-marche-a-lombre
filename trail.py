@@ -216,7 +216,7 @@ class Trail:
             left_points = []
             right_points = []
             
-            offset_dist = 10.0 # meters
+            offset_dist = 5.0 # meters
             
             for i in range(len(center_points)):
                 current_tp = center_points[i]

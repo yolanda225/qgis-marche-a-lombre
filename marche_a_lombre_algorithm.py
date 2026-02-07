@@ -165,7 +165,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterBoolean(
                 self.BUFFER_MODE,
-                self.tr('Calculate with Buffer (Center, Left 10m, Right 10m)'),
+                self.tr('Calculate with Buffer (Center, Left 5m, Right 5m)'),
                 defaultValue=False
             )
         )
