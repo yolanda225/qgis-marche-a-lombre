@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>marche_a_lombre.shadow_calculator &#8212; MarcheALOmbre 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css?v=514cf933" />
+    
+    <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" accesskey="U">marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.shadow_calculator</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for marche_a_lombre.shadow_calculator</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Part of MarcheALOmbre QGIS Plugin</span>
+<span class="sd">Copyright (C) 2025 Yolanda Seifert</span>
+<span class="sd">Licensed under GPL v2+</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">osgeo</span> <span class="kn">import</span> <span class="n">gdal</span>
+
+<div class="viewcode-block" id="ShadowCalculator">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.shadow_calculator.ShadowCalculator">[docs]</a>
+<span class="k">class</span> <span class="nc">ShadowCalculator</span><span class="p">:</span>
+    
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">high_res_path</span><span class="p">,</span> <span class="n">low_res_path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the calculator with paths to High-Res and Low-Res MNS files</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            high_res_path (str): File path to the High Resolution MNS</span>
+<span class="sd">            low_res_path (str): File path to the Low Resolution MNS</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Exception: If a raster file cannot be opened by GDAL</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_ds</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">Open</span><span class="p">(</span><span class="n">high_res_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_ds</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not open High-Res MNS: </span><span class="si">{</span><span class="n">high_res_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_gt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_ds</span><span class="o">.</span><span class="n">GetGeoTransform</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_gt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_ds</span><span class="o">.</span><span class="n">GetRasterBand</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ReadAsArray</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_rows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_data</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_ds</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">Open</span><span class="p">(</span><span class="n">low_res_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_ds</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not open Low-Res MNS: </span><span class="si">{</span><span class="n">low_res_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_gt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_ds</span><span class="o">.</span><span class="n">GetGeoTransform</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_gt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_ds</span><span class="o">.</span><span class="n">GetRasterBand</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ReadAsArray</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_rows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_data</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="k">def</span> <span class="nf">_to_pixel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">gt</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert world coordinates to raster pixel coordinates</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (float): x coordinate</span>
+<span class="sd">            y (float): y coordinate</span>
+<span class="sd">            gt (tuple): gdal GeoTransform</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[int, int]: (column, row)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">gt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">gt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">gt</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="o">/</span> <span class="n">gt</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">col</span><span class="p">,</span> <span class="n">row</span>
+
+<div class="viewcode-block" id="ShadowCalculator.draw_bresenham_line">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.shadow_calculator.ShadowCalculator.draw_bresenham_line">[docs]</a>
+    <span class="k">def</span> <span class="nf">draw_bresenham_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">max_dist_pixels</span><span class="p">,</span> <span class="n">azimuth</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw bresenham line on a raster with given starting point</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x0 (int): start x value</span>
+<span class="sd">            y0 (int): start y value</span>
+<span class="sd">            max_dist_pixels (float): maximum distance in pixels</span>
+<span class="sd">            azimuth (float): direction angle of line in radians</span>
+<span class="sd">            rows (int): number of rows in raster</span>
+<span class="sd">            cols (int): number of columns in raster</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (int,int)[]: list of indices of resulting line</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">delta_x</span> <span class="o">=</span> <span class="n">max_dist_pixels</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">azimuth</span><span class="p">)</span>
+        <span class="n">delta_y</span> <span class="o">=</span> <span class="n">max_dist_pixels</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">azimuth</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">delta_x</span><span class="p">)</span>
+        <span class="n">y1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y0</span> <span class="o">-</span> <span class="n">delta_y</span><span class="p">)</span>
+
+        <span class="n">dx</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span>
+        
+        <span class="n">sx</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">x0</span> <span class="o">&lt;</span> <span class="n">x1</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">sy</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">y0</span> <span class="o">&lt;</span> <span class="n">y1</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+        
+        <span class="n">D</span> <span class="o">=</span> <span class="n">dx</span> <span class="o">-</span> <span class="n">dy</span>
+        
+        <span class="n">line</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="c1"># Boundary check</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">x0</span> <span class="o">&lt;</span> <span class="n">cols</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">y0</span> <span class="o">&lt;</span> <span class="n">rows</span><span class="p">):</span>
+                <span class="k">break</span>
+
+            <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">x0</span> <span class="o">==</span> <span class="n">x1</span> <span class="ow">and</span> <span class="n">y0</span> <span class="o">==</span> <span class="n">y1</span><span class="p">:</span>
+                <span class="k">break</span>
+                
+            <span class="n">D2</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">D</span>
+
+            <span class="c1"># Adjust x</span>
+            <span class="k">if</span> <span class="n">D2</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">dy</span><span class="p">:</span>
+                <span class="n">D</span> <span class="o">=</span> <span class="n">D</span> <span class="o">-</span> <span class="n">dy</span>
+                <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">sx</span>
+
+            <span class="c1"># Adjust y  </span>
+            <span class="k">if</span> <span class="n">D2</span> <span class="o">&lt;</span> <span class="n">dx</span><span class="p">:</span>
+                <span class="n">D</span> <span class="o">=</span> <span class="n">D</span> <span class="o">+</span> <span class="n">dx</span>
+                <span class="n">y0</span> <span class="o">=</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">sy</span>
+                
+        <span class="k">return</span> <span class="n">line</span></div>
+
+
+<div class="viewcode-block" id="ShadowCalculator.calc_angle">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.shadow_calculator.ShadowCalculator.calc_angle">[docs]</a>
+    <span class="k">def</span> <span class="nf">calc_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trail_point</span><span class="p">,</span> <span class="n">index_list</span><span class="p">,</span> <span class="n">start_px</span><span class="p">,</span> <span class="n">mns_data</span><span class="p">,</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">min_dist_m</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates angles for all points in bresenham line at once using numpy</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trail_point: trail point from where angles are calculated</span>
+<span class="sd">            index_list (int,int)[]: index list from bresenham line</span>
+<span class="sd">            start_px (int, int): starting pixel (col, row)</span>
+<span class="sd">            mns_data (array): MNS raster data</span>
+<span class="sd">            resolution (float): resolution of the raster</span>
+<span class="sd">            min_dist_m (float): minimum distance to check (overlap)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (float[], float): list of angles, furthest distance checked</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">index_list</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="mf">0.0</span>
+
+        <span class="n">start_x</span><span class="p">,</span> <span class="n">start_y</span> <span class="o">=</span> <span class="n">start_px</span>
+        <span class="n">last_x</span><span class="p">,</span> <span class="n">last_y</span> <span class="o">=</span> <span class="n">index_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dist_end_sq</span> <span class="o">=</span> <span class="p">(</span><span class="n">last_x</span> <span class="o">-</span> <span class="n">start_x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">last_y</span> <span class="o">-</span> <span class="n">start_y</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">max_dist</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dist_end_sq</span><span class="p">)</span> <span class="o">*</span> <span class="n">resolution</span>
+
+        <span class="n">path</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">index_list</span><span class="p">)</span>
+        <span class="n">path_x</span> <span class="o">=</span> <span class="n">path</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">path_y</span> <span class="o">=</span> <span class="n">path</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">h_viewer</span> <span class="o">=</span> <span class="n">trail_point</span><span class="o">.</span><span class="n">z</span> <span class="o">+</span> <span class="mf">1.7</span>
+        <span class="n">h_obstacles</span> <span class="o">=</span> <span class="n">mns_data</span><span class="p">[</span><span class="n">path_y</span><span class="p">,</span> <span class="n">path_x</span><span class="p">]</span>
+
+        <span class="c1"># Filter only obstacles higher than viewer</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">h_obstacles</span> <span class="o">&gt;</span> <span class="n">h_viewer</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="n">max_dist</span> 
+
+        <span class="n">rel_x</span> <span class="o">=</span> <span class="n">path_x</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">rel_y</span> <span class="o">=</span> <span class="n">path_y</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">rel_h</span> <span class="o">=</span> <span class="n">h_obstacles</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+        <span class="c1"># Calculate Euclidean Distances</span>
+        <span class="n">dist_sq</span> <span class="o">=</span> <span class="p">(</span><span class="n">rel_x</span> <span class="o">-</span> <span class="n">start_x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">rel_y</span> <span class="o">-</span> <span class="n">start_y</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        
+        <span class="n">dist_mask</span> <span class="o">=</span> <span class="n">dist_sq</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">dist_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dist_sq</span><span class="p">[</span><span class="n">dist_mask</span><span class="p">])</span>
+        <span class="n">rel_h</span> <span class="o">=</span> <span class="n">rel_h</span><span class="p">[</span><span class="n">dist_mask</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dist_pixels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="n">max_dist</span>
+
+        <span class="n">dist_m</span> <span class="o">=</span> <span class="n">dist_pixels</span> <span class="o">*</span> <span class="n">resolution</span>
+
+        <span class="c1"># Filter min_dist_m (for Low Res)</span>
+        <span class="k">if</span> <span class="n">min_dist_m</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dist_filter</span> <span class="o">=</span> <span class="n">dist_m</span> <span class="o">&gt;</span> <span class="n">min_dist_m</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">dist_filter</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="n">max_dist</span>
+            <span class="n">dist_m</span> <span class="o">=</span> <span class="n">dist_m</span><span class="p">[</span><span class="n">dist_filter</span><span class="p">]</span>
+            <span class="n">rel_h</span> <span class="o">=</span> <span class="n">rel_h</span><span class="p">[</span><span class="n">dist_filter</span><span class="p">]</span>
+
+        <span class="c1"># Calculate angles</span>
+        <span class="n">height_diffs</span> <span class="o">=</span> <span class="n">rel_h</span> <span class="o">-</span> <span class="n">h_viewer</span>
+        <span class="n">angles_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">height_diffs</span> <span class="o">/</span> <span class="n">dist_m</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">angles_rad</span><span class="p">,</span> <span class="n">max_dist</span></div>
+
+    
+<div class="viewcode-block" id="ShadowCalculator.calculate_shadows">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.shadow_calculator.ShadowCalculator.calculate_shadows">[docs]</a>
+    <span class="k">def</span> <span class="nf">calculate_shadows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trail_points</span><span class="p">,</span> <span class="n">max_dist_m</span><span class="o">=</span><span class="mi">20000</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate if trail points are in shadow or sun along a trail.</span>
+<span class="sd">        Iterates through every trail point, casts a line in the direction of the sun azimuth,</span>
+<span class="sd">        and checks if any obstacle (from High-Res or Low-Res MNS) has an elevation angle</span>
+<span class="sd">        greater than the sun&#39;s current elevation</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trail_points [TrailPoint]: trail points </span>
+<span class="sd">            max_dist_m (int, optional): maximum distance in which an obstacle which could cause shadow is searched</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int[]: list of shadows (0=sunny,1=shady)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="n">high_max_px</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_dist_m</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_res</span><span class="p">)</span>
+        <span class="n">low_max_px</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_dist_m</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_res</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">trail_points</span><span class="p">:</span>
+            
+            <span class="c1"># Night check</span>
+            <span class="n">sun_elevation_rad</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">solar_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">sun_elevation_rad</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># It is night/shady</span>
+                <span class="k">continue</span>
+
+            <span class="n">max_angle</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">covered_dist</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+            <span class="c1"># High-Res</span>
+            <span class="n">h_col</span><span class="p">,</span> <span class="n">h_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_pixel</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_gt</span><span class="p">)</span>
+            
+            <span class="c1"># Boundary check</span>
+            <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">h_col</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_cols</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">h_row</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_rows</span><span class="p">:</span>
+                
+                <span class="c1"># Draw line in azimuth direction</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_bresenham_line</span><span class="p">(</span>
+                    <span class="n">h_col</span><span class="p">,</span> <span class="n">h_row</span><span class="p">,</span> <span class="n">high_max_px</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">solar_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_rows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_cols</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Calculate angles of line</span>
+                <span class="n">angles_rad</span><span class="p">,</span> <span class="n">covered_dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_angle</span><span class="p">(</span>
+                    <span class="n">tp</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="n">h_col</span><span class="p">,</span> <span class="n">h_row</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_res</span><span class="p">,</span> <span class="n">min_dist_m</span><span class="o">=</span><span class="mi">0</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Check shadow</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">angles_rad</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">max_obstacle_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">angles_rad</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">max_obstacle_angle</span> <span class="o">&gt;</span> <span class="n">sun_elevation_rad</span><span class="p">:</span>
+                        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># Shady</span>
+                        <span class="k">continue</span> <span class="c1"># Skip check in Low-Res</span>
+                    <span class="n">max_angle</span> <span class="o">=</span> <span class="n">max_obstacle_angle</span>
+
+            <span class="c1"># Low-Res</span>
+            <span class="n">l_col</span><span class="p">,</span> <span class="n">l_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_pixel</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_gt</span><span class="p">)</span>
+            
+            <span class="c1"># Boundary check</span>
+            <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">l_col</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_cols</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">l_row</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_rows</span><span class="p">:</span>
+                
+                <span class="c1"># Draw line in azimuth direction</span>
+                <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_bresenham_line</span><span class="p">(</span>
+                    <span class="n">l_col</span><span class="p">,</span> <span class="n">l_row</span><span class="p">,</span> <span class="n">low_max_px</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">solar_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_rows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_cols</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Calculate angles of line, skipping covered_dist</span>
+                <span class="n">angles_rad</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_angle</span><span class="p">(</span>
+                    <span class="n">tp</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="n">l_col</span><span class="p">,</span> <span class="n">l_row</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_res</span><span class="p">,</span> <span class="n">min_dist_m</span><span class="o">=</span><span class="n">covered_dist</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Check shadow</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">angles_rad</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">max_obstacle_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">angles_rad</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">max_obstacle_angle</span> <span class="o">&gt;</span> <span class="n">max_angle</span><span class="p">:</span>
+                        <span class="n">max_angle</span> <span class="o">=</span> <span class="n">max_obstacle_angle</span>
+            
+            <span class="c1"># Final check</span>
+            <span class="k">if</span> <span class="n">max_angle</span> <span class="o">&gt;</span> <span class="n">sun_elevation_rad</span><span class="p">:</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># Shady</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># Sunny</span>
+            
+        <span class="k">return</span> <span class="n">results</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" >marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.shadow_calculator</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2013, Yolanda Seifert.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

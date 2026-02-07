@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>marche_a_lombre.trail_point &#8212; MarcheALOmbre 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css?v=514cf933" />
+    
+    <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" accesskey="U">marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.trail_point</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for marche_a_lombre.trail_point</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Part of MarcheALOmbre QGIS Plugin</span>
+<span class="sd">Copyright (C) 2025 Yolanda Seifert</span>
+<span class="sd">Licensed under GPL v2+</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pvlib</span>
+    <span class="n">HAS_PVLIB</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PVLib import failed (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">). Using manual Solar Position Calculation&quot;</span><span class="p">)</span>
+    <span class="n">HAS_PVLIB</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="TrailPoint">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail_point.TrailPoint">[docs]</a>
+<span class="k">class</span> <span class="nc">TrailPoint</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes a TrailPoint and automatically calculates the solar position</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            lon (float): Longitude (WGS84)</span>
+<span class="sd">            lat (float): Latitude (WGS84)</span>
+<span class="sd">            x (float): Projected X coordinate</span>
+<span class="sd">            y (float): Projected Y coordinate</span>
+<span class="sd">            z (float): Elevation</span>
+<span class="sd">            datetime (datetime): Time of arrival</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lon</span> <span class="o">=</span> <span class="n">lon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lat</span> <span class="o">=</span> <span class="n">lat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">z</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">datetime</span> <span class="o">=</span> <span class="n">datetime</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solar_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_solar_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datetime</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TrailPoint.calc_solar_pos">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail_point.TrailPoint.calc_solar_pos">[docs]</a>
+    <span class="k">def</span> <span class="nf">calc_solar_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates Solar Azimuth and Elevation for a given place and time.</span>
+<span class="sd">        Uses pvlib if installed</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            dt (datetime): A datetime object</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple (float): (elevation, azimuth) in radians</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">toUTC</span><span class="p">()</span><span class="o">.</span><span class="n">toPyDateTime</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">dt</span><span class="o">.</span><span class="n">tzinfo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">HAS_PVLIB</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">sp</span> <span class="o">=</span> <span class="n">pvlib</span><span class="o">.</span><span class="n">solarposition</span><span class="o">.</span><span class="n">get_solarposition</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span> <span class="n">altitude</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;nrel_numpy&#39;</span><span class="p">)</span>
+                <span class="n">azimuth_pvlib</span> <span class="o">=</span> <span class="n">sp</span><span class="p">[</span><span class="s1">&#39;azimuth&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">elevation_pvlib</span> <span class="o">=</span> <span class="mi">90</span><span class="o">-</span><span class="n">sp</span><span class="p">[</span><span class="s1">&#39;zenith&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">elevation_pvlib</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">azimuth_pvlib</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PVLib failed, falling back to manual: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Calculate time variables</span>
+        <span class="n">start_of_year</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+        <span class="n">day_of_year</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt</span> <span class="o">-</span> <span class="n">start_of_year</span><span class="p">)</span><span class="o">.</span><span class="n">days</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">hour_decimal</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">hour</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">minute</span> <span class="o">/</span> <span class="mf">60.0</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">second</span> <span class="o">/</span> <span class="mf">3600.0</span>
+
+        <span class="c1"># Fractional year (gamma) in radians</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">day_of_year</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">hour_decimal</span> <span class="o">-</span> <span class="mi">12</span><span class="p">)</span> <span class="o">/</span> <span class="mi">24</span><span class="p">)</span>
+
+        <span class="c1"># Equation of time describes offset between mean and true solar time for given day</span>
+        <span class="c1"># is due to elliptic orbit and inclined axis of earth</span>
+        <span class="n">eqtime</span> <span class="o">=</span> <span class="mf">229.18</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.000075</span> <span class="o">+</span> <span class="mf">0.001868</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.032077</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span> \
+                 <span class="o">-</span> <span class="mf">0.014615</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.040849</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">))</span>
+
+        <span class="c1"># Solar Declination (angle between solar radiation and equatorial plane) Spencer&#39;s Method</span>
+        <span class="n">decl</span> <span class="o">=</span> <span class="mf">0.006918</span> <span class="o">-</span> <span class="mf">0.399912</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.070257</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">gamma</span><span class="p">)</span> \
+               <span class="o">-</span> <span class="mf">0.006758</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.000907</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">)</span> \
+               <span class="o">-</span> <span class="mf">0.002697</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.00148</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">gamma</span><span class="p">)</span>
+
+        <span class="c1"># True Solar Time</span>
+        <span class="c1"># Earth rotates 1 degree every 4 minutes</span>
+        <span class="n">time_offset</span> <span class="o">=</span> <span class="n">eqtime</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon</span>
+        <span class="n">tst</span> <span class="o">=</span> <span class="n">hour_decimal</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">+</span> <span class="n">time_offset</span>
+        
+        <span class="c1"># Hour Angle in radians - angle between local lon and lon with solar noon</span>
+        <span class="c1"># (tst / 4) - 180 converts minutes to degrees so that 12:00 PM becomes 0</span>
+        <span class="n">ha_deg</span> <span class="o">=</span> <span class="p">(</span><span class="n">tst</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-</span> <span class="mi">180</span>
+        <span class="n">ha_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">ha_deg</span><span class="p">)</span>
+        
+        <span class="c1"># more efficient to compute cos(decl) and sin(decl) earlier</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="p">)</span>
+        <span class="n">sin_dec</span><span class="p">,</span> <span class="n">cos_dec</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">decl</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">decl</span><span class="p">)</span>
+        <span class="n">sin_lat</span><span class="p">,</span> <span class="n">cos_lat</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span>
+        <span class="n">sin_ha</span><span class="p">,</span> <span class="n">cos_ha</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">ha_rad</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">ha_rad</span><span class="p">)</span>
+
+        <span class="c1"># Caluclate Elevation angle</span>
+        <span class="n">sin_elev</span> <span class="o">=</span> <span class="n">sin_lat</span> <span class="o">*</span> <span class="n">sin_dec</span> <span class="o">+</span> <span class="n">cos_lat</span> <span class="o">*</span> <span class="n">cos_dec</span> <span class="o">*</span> <span class="n">cos_ha</span>
+        <span class="n">elevation_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">asin</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sin_elev</span><span class="p">)))</span>
+
+        <span class="c1"># Calculate Azimuth angle</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="n">cos_ha</span> <span class="o">*</span> <span class="n">sin_lat</span> <span class="o">*</span> <span class="n">cos_dec</span> <span class="o">+</span> <span class="n">sin_dec</span> <span class="o">*</span> <span class="n">cos_lat</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="o">-</span><span class="n">sin_ha</span> <span class="o">*</span> <span class="n">cos_dec</span>
+        <span class="n">azimuth_rad</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Normalize to 0-2pi</span>
+        <span class="n">azimuth_rad</span> <span class="o">=</span> <span class="p">(</span><span class="n">azimuth_rad</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">elevation_rad</span><span class="p">,</span> <span class="n">azimuth_rad</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" >marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.trail_point</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2013, Yolanda Seifert.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

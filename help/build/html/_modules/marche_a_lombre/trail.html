@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>marche_a_lombre.trail &#8212; MarcheALOmbre 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css?v=514cf933" />
+    
+    <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" accesskey="U">marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.trail</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for marche_a_lombre.trail</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Part of MarcheALOmbre QGIS Plugin</span>
+<span class="sd">Copyright (C) 2025 Yolanda Seifert</span>
+<span class="sd">Licensed under GPL v2+</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">qgis.core</span> <span class="kn">import</span> <span class="p">(</span><span class="n">QgsCoordinateTransform</span><span class="p">,</span> <span class="n">QgsPointXY</span><span class="p">,</span> <span class="n">QgsGeometry</span><span class="p">,</span> 
+                       <span class="n">QgsRectangle</span><span class="p">,</span> <span class="n">QgsCoordinateReferenceSystem</span><span class="p">,</span>
+                       <span class="n">QgsRasterLayer</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.trail_point</span> <span class="kn">import</span> <span class="n">TrailPoint</span>
+<span class="kn">from</span> <span class="nn">.geo_definitions</span> <span class="kn">import</span> <span class="n">REGIONS</span><span class="p">,</span> <span class="n">MANUAL_DEFS</span>
+
+<div class="viewcode-block" id="Trail">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail.Trail">[docs]</a>
+<span class="k">class</span> <span class="nc">Trail</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_sep</span><span class="p">,</span> <span class="n">speed</span><span class="p">,</span> <span class="n">source_crs</span><span class="p">,</span> <span class="n">transform_context</span><span class="p">,</span> <span class="n">feedback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes the Trail</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_sep (float): Maximum separation distance (in meters) between points after densification</span>
+<span class="sd">            speed (float): Average hiking speed in km/h</span>
+<span class="sd">            source_crs (QgsCoordinateReferenceSystem): The CRS of the input vector layer</span>
+<span class="sd">            transform_context (QgsCoordinateTransformContext): Context for coordinate transformations</span>
+<span class="sd">            feedback (QgsProcessingFeedback, optional): Feedback object for reporting logs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">speed</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="o">/</span><span class="mi">18</span><span class="p">)</span> <span class="o">*</span> <span class="n">speed</span> <span class="c1"># km/h to m/s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_sep</span> <span class="o">=</span> <span class="n">max_sep</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">src</span> <span class="o">=</span> <span class="n">source_crs</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">isValid</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">src</span> <span class="o">=</span> <span class="n">QgsCoordinateReferenceSystem</span><span class="p">(</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span> <span class="o">=</span> <span class="n">transform_context</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wgs84</span> <span class="o">=</span> <span class="n">QgsCoordinateReferenceSystem</span><span class="p">(</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extent</span> <span class="o">=</span> <span class="n">QgsRectangle</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="n">feedback</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">center_lat</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<div class="viewcode-block" id="Trail.log">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail.Trail.log">[docs]</a>
+    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Logs a message to the feedback object</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            message (str): The message to log</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">pushInfo</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_determine_best_crs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wgs84_extent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check which region contains the center of the trail extent</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wgs84_extent (QgsRectangle): The extent of the layer in WGS84.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: A tuple containing (epsg_code (str), region_name (str)).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="n">wgs84_extent</span><span class="o">.</span><span class="n">center</span><span class="p">()</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="n">center</span><span class="o">.</span><span class="n">x</span><span class="p">()</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="n">center</span><span class="o">.</span><span class="n">y</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">REGIONS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;bbox&#39;</span><span class="p">]</span>
+            <span class="c1"># Bounding box check</span>
+            <span class="k">if</span> <span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">lon</span> <span class="o">&lt;=</span> <span class="n">b</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">and</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">lat</span> <span class="o">&lt;=</span> <span class="n">b</span><span class="p">[</span><span class="mi">3</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;epsg&#39;</span><span class="p">],</span> <span class="n">name</span>
+        
+        <span class="c1"># Default to France</span>
+        <span class="k">return</span> <span class="s2">&quot;EPSG:2154&quot;</span><span class="p">,</span> <span class="s2">&quot;France_Metropole (Default)&quot;</span>
+
+<div class="viewcode-block" id="Trail.reverse_trail">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail.Trail.reverse_trail">[docs]</a>
+    <span class="k">def</span> <span class="nf">reverse_trail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geometry</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reverses the order of the linestring</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            geometry (QgsGeometry): The input linestring geometry</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            QgsGeometry: New linestring with reversed vertices</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nodes</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">asPolyline</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="n">nodes</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">QgsGeometry</span><span class="o">.</span><span class="n">fromPolylineXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">geometry</span></div>
+
+
+<div class="viewcode-block" id="Trail.process_trail">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail.Trail.process_trail">[docs]</a>
+    <span class="k">def</span> <span class="nf">process_trail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_tracks</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">break_point</span><span class="p">,</span> <span class="n">picnic_duration</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">buffer</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">project_crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Processes input GPX source tracks into a list of TrailPoint objects</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            source_tracks (QgsProcessingFeatureSource]): Tracks from the gpx trail</span>
+<span class="sd">            start_time (QDateTime): Hikers time of departure</span>
+<span class="sd">            break_point ( QgsPointXY): Coordinates of an optional picnic point</span>
+<span class="sd">            picnic_duration (float): Duration of the hikers picnic break (minutes)</span>
+<span class="sd">            reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.</span>
+<span class="sd">            buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.</span>
+<span class="sd">            project_crs (QgsCoordinateReferenceSystem, optional): The CRS for transforming break_point. Defaults to None.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Exception: If coordinate transformation fails or no valid trail points are generated</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">wgs84_extent</span> <span class="o">=</span> <span class="n">source_tracks</span><span class="o">.</span><span class="n">sourceExtent</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">center_lat</span> <span class="o">=</span> <span class="n">wgs84_extent</span><span class="o">.</span><span class="n">center</span><span class="p">()</span><span class="o">.</span><span class="n">y</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_crs</span><span class="p">,</span> <span class="n">region_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_determine_best_crs</span><span class="p">(</span><span class="n">source_tracks</span><span class="o">.</span><span class="n">sourceExtent</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Detected Region: </span><span class="si">{</span><span class="n">region_name</span><span class="si">}</span><span class="s2">. Switching to CRS: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_crs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">dest_crs</span> <span class="o">=</span> <span class="n">QgsCoordinateReferenceSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_crs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wgs84</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+
+        <span class="c1"># Check if standard transformation failed if missing grids on machine</span>
+        <span class="n">auth_id</span> <span class="o">=</span> <span class="n">dest_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">isValid</span><span class="p">()</span> <span class="ow">and</span> <span class="n">auth_id</span> <span class="ow">in</span> <span class="n">MANUAL_DEFS</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: Standard </span><span class="si">{</span><span class="n">auth_id</span><span class="si">}</span><span class="s2"> failed. Switching to Manual Definition.&quot;</span><span class="p">)</span>
+            <span class="c1"># Create CRS from raw Proj4 string</span>
+            <span class="n">dest_crs</span> <span class="o">=</span> <span class="n">QgsCoordinateReferenceSystem</span><span class="o">.</span><span class="n">fromProj4</span><span class="p">(</span><span class="n">MANUAL_DEFS</span><span class="p">[</span><span class="n">auth_id</span><span class="p">])</span>
+            <span class="c1"># Redo tranformations</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setBallparkTransformsAreAppropriate</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wgs84</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span><span class="o">.</span><span class="n">setBallparkTransformsAreAppropriate</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">isValid</span><span class="p">():</span>
+             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CRITICAL: Transformation to </span><span class="si">{</span><span class="n">dest_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span><span class="si">}</span><span class="s2"> could not be initialized.&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Transform break_point from project CRS to target CRS if provided</span>
+        <span class="n">transformed_break_point</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">break_point</span> <span class="ow">and</span> <span class="n">project_crs</span><span class="p">:</span>
+            <span class="c1"># Create transformation from project CRS to target CRS</span>
+            <span class="n">project_to_target</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="n">project_crs</span><span class="p">,</span> <span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+            
+            <span class="c1"># Try manual fallback if standard transformation fails</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">project_to_target</span><span class="o">.</span><span class="n">isValid</span><span class="p">():</span>
+                <span class="n">project_auth</span> <span class="o">=</span> <span class="n">project_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">project_auth</span> <span class="ow">in</span> <span class="n">MANUAL_DEFS</span> <span class="ow">and</span> <span class="n">auth_id</span> <span class="ow">in</span> <span class="n">MANUAL_DEFS</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: Standard transformation </span><span class="si">{</span><span class="n">project_auth</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">auth_id</span><span class="si">}</span><span class="s2"> failed. Using manual fallback.&quot;</span><span class="p">)</span>
+                    <span class="n">project_to_target</span> <span class="o">=</span> <span class="n">QgsCoordinateTransform</span><span class="p">(</span><span class="n">project_crs</span><span class="p">,</span> <span class="n">dest_crs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_context</span><span class="p">)</span>
+                    <span class="n">project_to_target</span><span class="o">.</span><span class="n">setBallparkTransformsAreAppropriate</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">transformed_break_point</span> <span class="o">=</span> <span class="n">project_to_target</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">break_point</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transformed break point from </span><span class="si">{</span><span class="n">project_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">dest_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Break point: </span><span class="si">{</span><span class="n">break_point</span><span class="o">.</span><span class="n">x</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">break_point</span><span class="o">.</span><span class="n">y</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">project_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span><span class="si">}</span><span class="s2">) -&gt; </span><span class="si">{</span><span class="n">transformed_break_point</span><span class="o">.</span><span class="n">x</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">transformed_break_point</span><span class="o">.</span><span class="n">y</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">dest_crs</span><span class="o">.</span><span class="n">authid</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ERROR: Failed to transform break point: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">transformed_break_point</span> <span class="o">=</span> <span class="kc">None</span>
+        
+        <span class="n">total_dist</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">center_points</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">source_tracks</span><span class="o">.</span><span class="n">getFeatures</span><span class="p">():</span>
+            <span class="n">geom</span> <span class="o">=</span> <span class="n">feature</span><span class="o">.</span><span class="n">geometry</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">geom</span><span class="o">.</span><span class="n">isEmpty</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Standardize geometry to list of lines</span>
+            <span class="k">if</span> <span class="n">geom</span><span class="o">.</span><span class="n">isMultipart</span><span class="p">():</span>
+                <span class="n">lines</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">asMultiPolyline</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">geom</span><span class="o">.</span><span class="n">asPolyline</span><span class="p">()]</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Input layer must be tracks.&quot;</span><span class="p">)</span>
+            
+
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+                <span class="n">transformed_vertices</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Transform point</span>
+                        <span class="n">trans_pt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">QgsPointXY</span><span class="p">(</span><span class="n">pt</span><span class="p">))</span>
+                        <span class="n">transformed_vertices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trans_pt</span><span class="p">)</span>
+                    <span class="k">except</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">transformed_vertices</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="k">if</span> <span class="n">reverse</span><span class="p">:</span>
+                    <span class="n">transformed_vertices</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+
+                <span class="c1"># Rebuild geometry in Lambert-93</span>
+                <span class="n">new_geom</span> <span class="o">=</span> <span class="n">QgsGeometry</span><span class="o">.</span><span class="n">fromPolylineXY</span><span class="p">(</span><span class="n">transformed_vertices</span><span class="p">)</span>
+                
+                <span class="c1"># Densify </span>
+                <span class="n">densified_geom</span> <span class="o">=</span> <span class="n">new_geom</span><span class="o">.</span><span class="n">densifyByDistance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_sep</span><span class="p">)</span>
+
+                <span class="c1"># Extract points and calculate Lat/Lon</span>
+                <span class="n">verts</span> <span class="o">=</span> <span class="n">densified_geom</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+                <span class="n">prev_pt</span> <span class="o">=</span> <span class="kc">None</span>
+                
+                <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">verts</span><span class="p">:</span>
+                    <span class="n">pt_l93</span> <span class="o">=</span> <span class="n">QgsPointXY</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">x</span><span class="p">(),</span> <span class="n">v</span><span class="o">.</span><span class="n">y</span><span class="p">())</span>
+                    <span class="n">geo_pt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">pt_l93</span><span class="p">)</span>
+                    
+                    <span class="c1"># Calculate Distance for Time</span>
+                    <span class="k">if</span> <span class="n">prev_pt</span><span class="p">:</span>
+                        <span class="n">dist</span> <span class="o">=</span> <span class="n">pt_l93</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">prev_pt</span><span class="p">)</span>
+                        <span class="n">total_dist</span> <span class="o">+=</span> <span class="n">dist</span>
+
+                    <span class="n">seconds_elapsed</span> <span class="o">=</span> <span class="n">total_dist</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">speed</span>
+                    <span class="n">current_time</span> <span class="o">=</span> <span class="n">start_time</span><span class="o">.</span><span class="n">addSecs</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">seconds_elapsed</span><span class="p">))</span>
+                    
+                    <span class="c1"># Create TrailPoint object</span>
+                    <span class="n">tp</span> <span class="o">=</span> <span class="n">TrailPoint</span><span class="p">(</span>
+                        <span class="n">x</span><span class="o">=</span><span class="n">pt_l93</span><span class="o">.</span><span class="n">x</span><span class="p">(),</span>
+                        <span class="n">y</span><span class="o">=</span><span class="n">pt_l93</span><span class="o">.</span><span class="n">y</span><span class="p">(),</span>
+                        <span class="n">z</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="c1"># implement with MNT</span>
+                        <span class="n">lat</span><span class="o">=</span><span class="n">geo_pt</span><span class="o">.</span><span class="n">y</span><span class="p">(),</span> <span class="c1"># Latitude</span>
+                        <span class="n">lon</span><span class="o">=</span><span class="n">geo_pt</span><span class="o">.</span><span class="n">x</span><span class="p">(),</span> <span class="c1"># Longitude</span>
+                        <span class="n">datetime</span><span class="o">=</span><span class="n">current_time</span>
+                    <span class="p">)</span>
+                    
+                    <span class="n">center_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+                    <span class="n">prev_pt</span> <span class="o">=</span> <span class="n">pt_l93</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">center_points</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No trail points could be processed. Input layer must be tracks.&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">transformed_break_point</span><span class="p">:</span>
+            <span class="c1"># Find the closest point to break location</span>
+            <span class="n">closest_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">min_dist</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+            
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">tp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">center_points</span><span class="p">):</span>
+                <span class="c1"># Calculate distance</span>
+                <span class="n">dist</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">tp</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">transformed_break_point</span><span class="o">.</span><span class="n">x</span><span class="p">())</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">y</span> <span class="o">-</span> <span class="n">transformed_break_point</span><span class="o">.</span><span class="n">y</span><span class="p">())</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">dist</span> <span class="o">&lt;</span> <span class="n">min_dist</span><span class="p">:</span>
+                    <span class="n">min_dist</span> <span class="o">=</span> <span class="n">dist</span>
+                    <span class="n">closest_idx</span> <span class="o">=</span> <span class="n">i</span>
+            
+            <span class="c1"># Add 1 hour to all points after the break</span>
+            <span class="k">if</span> <span class="n">min_dist</span> <span class="o">&lt;</span> <span class="mi">5000</span><span class="p">:</span> <span class="c1"># only apply if the point is somewhat near the trail</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying 1h break at point </span><span class="si">{</span><span class="n">closest_idx</span><span class="si">}</span><span class="s2"> (Dist: </span><span class="si">{</span><span class="n">min_dist</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">m)&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">closest_idx</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">center_points</span><span class="p">)):</span>
+                    <span class="n">tp</span> <span class="o">=</span> <span class="n">center_points</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">tp</span><span class="o">.</span><span class="n">datetime</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">addSecs</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">60</span><span class="o">*</span><span class="n">picnic_duration</span><span class="p">))</span>
+                    
+                    <span class="c1"># Recalculate solar position for the new time</span>
+                    <span class="n">tp</span><span class="o">.</span><span class="n">solar_pos</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">calc_solar_pos</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">datetime</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Break point too far from trail (</span><span class="si">{</span><span class="n">min_dist</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">m). Ignored.&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Add center points to main list</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">center_points</span><span class="p">)</span>
+
+        <span class="c1"># Generate Buffer trails</span>
+        <span class="k">if</span> <span class="n">buffer</span><span class="p">:</span>
+            <span class="n">left_points</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">right_points</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="n">offset_dist</span> <span class="o">=</span> <span class="mf">5.0</span> <span class="c1"># meters</span>
+            
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">center_points</span><span class="p">)):</span>
+                <span class="n">current_tp</span> <span class="o">=</span> <span class="n">center_points</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                
+                <span class="c1"># Determine direction</span>
+                <span class="n">p1</span> <span class="o">=</span> <span class="n">current_tp</span>
+                <span class="n">p2</span> <span class="o">=</span> <span class="kc">None</span>
+                
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">center_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">p2</span> <span class="o">=</span> <span class="n">center_points</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">p2</span> <span class="o">=</span> <span class="n">current_tp</span>
+                    <span class="n">p1</span> <span class="o">=</span> <span class="n">center_points</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                
+                <span class="n">dx</span> <span class="o">=</span> <span class="n">p2</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">p1</span><span class="o">.</span><span class="n">x</span>
+                <span class="n">dy</span> <span class="o">=</span> <span class="n">p2</span><span class="o">.</span><span class="n">y</span> <span class="o">-</span> <span class="n">p1</span><span class="o">.</span><span class="n">y</span>
+                <span class="n">length</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">dx</span><span class="o">*</span><span class="n">dx</span> <span class="o">+</span> <span class="n">dy</span><span class="o">*</span><span class="n">dy</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">ux</span><span class="p">,</span> <span class="n">uy</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ux</span><span class="p">,</span> <span class="n">uy</span> <span class="o">=</span> <span class="n">dx</span><span class="o">/</span><span class="n">length</span><span class="p">,</span> <span class="n">dy</span><span class="o">/</span><span class="n">length</span>
+                
+                <span class="c1"># Normal Vectors (Perpendicular to path)</span>
+                <span class="c1"># Left Normal: (-uy, ux)</span>
+                <span class="c1"># Right Normal: (uy, -ux)</span>
+                
+                <span class="c1"># Left point</span>
+                <span class="n">lx</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="p">(</span><span class="n">offset_dist</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">uy</span><span class="p">))</span>
+                <span class="n">ly</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">y</span> <span class="o">+</span> <span class="p">(</span><span class="n">offset_dist</span> <span class="o">*</span> <span class="p">(</span><span class="n">ux</span><span class="p">))</span>
+                
+                <span class="c1"># Convert to Lat/Lon</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">l_geo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">QgsPointXY</span><span class="p">(</span><span class="n">lx</span><span class="p">,</span> <span class="n">ly</span><span class="p">))</span>
+                    
+                    <span class="n">tp_left</span> <span class="o">=</span> <span class="n">TrailPoint</span><span class="p">(</span>
+                        <span class="n">x</span><span class="o">=</span><span class="n">lx</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ly</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="n">lat</span><span class="o">=</span><span class="n">l_geo</span><span class="o">.</span><span class="n">y</span><span class="p">(),</span> <span class="n">lon</span><span class="o">=</span><span class="n">l_geo</span><span class="o">.</span><span class="n">x</span><span class="p">(),</span>
+                        <span class="n">datetime</span><span class="o">=</span><span class="n">current_tp</span><span class="o">.</span><span class="n">datetime</span>
+                    <span class="p">)</span>
+                    <span class="n">tp_left</span><span class="o">.</span><span class="n">trail_type</span> <span class="o">=</span> <span class="s2">&quot;Left&quot;</span>
+                    <span class="n">tp_left</span><span class="o">.</span><span class="n">solar_pos</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">solar_pos</span>
+                    <span class="n">left_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tp_left</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+                <span class="c1"># Right point</span>
+                <span class="n">rx</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="p">(</span><span class="n">offset_dist</span> <span class="o">*</span> <span class="p">(</span><span class="n">uy</span><span class="p">))</span>
+                <span class="n">ry</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">y</span> <span class="o">+</span> <span class="p">(</span><span class="n">offset_dist</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">ux</span><span class="p">))</span>
+                
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">r_geo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_wgs84</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">QgsPointXY</span><span class="p">(</span><span class="n">rx</span><span class="p">,</span> <span class="n">ry</span><span class="p">))</span>
+                    
+                    <span class="n">tp_right</span> <span class="o">=</span> <span class="n">TrailPoint</span><span class="p">(</span>
+                        <span class="n">x</span><span class="o">=</span><span class="n">rx</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ry</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="n">lat</span><span class="o">=</span><span class="n">r_geo</span><span class="o">.</span><span class="n">y</span><span class="p">(),</span> <span class="n">lon</span><span class="o">=</span><span class="n">r_geo</span><span class="o">.</span><span class="n">x</span><span class="p">(),</span>
+                        <span class="n">datetime</span><span class="o">=</span><span class="n">current_tp</span><span class="o">.</span><span class="n">datetime</span>
+                    <span class="p">)</span>
+                    <span class="n">tp_right</span><span class="o">.</span><span class="n">trail_type</span> <span class="o">=</span> <span class="s2">&quot;Right&quot;</span>
+                    <span class="n">tp_right</span><span class="o">.</span><span class="n">solar_pos</span> <span class="o">=</span> <span class="n">current_tp</span><span class="o">.</span><span class="n">solar_pos</span>
+                    <span class="n">right_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tp_right</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">left_points</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">right_points</span><span class="p">)</span>
+
+        <span class="c1"># Calculate extent</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="p">:</span>
+            <span class="n">temp_points</span> <span class="o">=</span> <span class="p">[</span><span class="n">QgsPointXY</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="p">]</span>
+            
+            <span class="n">multipoint</span> <span class="o">=</span> <span class="n">QgsGeometry</span><span class="o">.</span><span class="n">fromMultiPointXY</span><span class="p">(</span><span class="n">temp_points</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">extent</span> <span class="o">=</span> <span class="n">multipoint</span><span class="o">.</span><span class="n">boundingBox</span><span class="p">()</span>
+            <span class="c1"># Buffer around extent</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="o">.</span><span class="n">grow</span><span class="p">(</span><span class="mf">500.0</span><span class="p">)</span>
+            
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Success! Trail Extent: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="o">.</span><span class="n">toString</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;No trail points could be processed.&quot;</span><span class="p">)</span></div>
+
+        
+<div class="viewcode-block" id="Trail.sample_elevation">
+<a class="viewcode-back" href="../../api/marche_a_lombre.html#marche_a_lombre.trail.Trail.sample_elevation">[docs]</a>
+    <span class="k">def</span> <span class="nf">sample_elevation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mnt_path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Loads the MNT raster from the given path and updates the z-value of all trail points</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mnt_path (str): File path to the MNT raster</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Load the MNT as a raster layer</span>
+        <span class="n">rlayer</span> <span class="o">=</span> <span class="n">QgsRasterLayer</span><span class="p">(</span><span class="n">mnt_path</span><span class="p">,</span> <span class="s2">&quot;mnt_sampling&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rlayer</span><span class="o">.</span><span class="n">isValid</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: Could not load MNT from </span><span class="si">{</span><span class="n">mnt_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">rlayer</span><span class="o">.</span><span class="n">dataProvider</span><span class="p">()</span>
+        
+        <span class="c1"># Loop through all points and sample the raster</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trail_points</span><span class="p">:</span>
+            <span class="n">val</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">QgsPointXY</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">tp</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">res</span><span class="p">:</span>
+                <span class="n">tp</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tp</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="c1"># Default if outside raster or nodata</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../marche_a_lombre.html" >marche_a_lombre</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">marche_a_lombre.trail</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2013, Yolanda Seifert.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Welcome to MarcheALOmbre’s documentation! &#8212; MarcheALOmbre 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=514cf933" />
+    
+    <script src="_static/documentation_options.js?v=2709fde1"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Technical Documentation" href="api/modules.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api/modules.html" title="Technical Documentation"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to MarcheALOmbre’s documentation!</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="welcome-to-marchealombre-s-documentation">
+<h1>Welcome to MarcheALOmbre’s documentation!<a class="headerlink" href="#welcome-to-marchealombre-s-documentation" title="Link to this heading">¶</a></h1>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/modules.html">Technical Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/marche_a_lombre.html">marche_a_lombre package</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p><strong>Marche à l’ombre</strong> calculates the shady and sunny portions of a given hiking trail in France, using time of departure, the calculated solar positions per trail point and terrain/surface elevation data</p>
+<p>The plugin uses:</p>
+<ul class="simple">
+<li><p>IGN LiDAR HD elevation data (MNS/MNT)</p></li>
+<li><p>Sun position calculations based on datetime and location</p></li>
+</ul>
+</section>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Dynamic layer retrieval from IGNs Web Map Service (<a class="reference external" href="https://data.geopf.fr/wms*r?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities">https://data.geopf.fr/wms*r?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities</a>)</p></li>
+<li><p>Adjustable hiking speed and picnic break</p></li>
+<li><p>Reversal of trail</p></li>
+<li><p>Buffered calculation (calculation also 5m to the right and left of the trail to )</p></li>
+<li><p>Vector output with color-coded trail segments</p></li>
+<li><p>Statistics output (percentage sunny, etc.)</p></li>
+</ul>
+</section>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>QGIS 3.0 or later</p></li>
+<li><p>Internet connection (to download elevation data from IGN)</p></li>
+<li><p>Python dependencies (included in QGIS):</p>
+<ul>
+<li><p>numpy</p></li>
+<li><p>gdal</p></li>
+</ul>
+</li>
+<li><p>Python dependencies (optional and not included in QGIS):
+* pvlib (If not installed, a manual solar position calculation is used)</p></li>
+</ul>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<section id="from-qgis-plugin-repository">
+<h3>From QGIS Plugin Repository<a class="headerlink" href="#from-qgis-plugin-repository" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Open QGIS</p></li>
+<li><p>Go to <strong>Plugins → Manage and Install Plugins</strong></p></li>
+<li><p>Search for “Marche à l’ombre”</p></li>
+<li><p>Click <strong>Install</strong></p></li>
+</ol>
+</section>
+<section id="manual-installation">
+<h3>Manual Installation<a class="headerlink" href="#manual-installation" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Download repository (<a class="reference external" href="https://github.com/yolanda225/qgis-marche-a-lombre">https://github.com/yolanda225/qgis-marche-a-lombre</a>)</p></li>
+<li><p>Compress to ZIP-file</p></li>
+<li><p>Open QGIS and go to <strong>Plugins → Manage and Install Plugins</strong></p></li>
+<li><p>Select <strong>Install from ZIP</strong></p></li>
+</ol>
+</section>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">¶</a></h2>
+<section id="basic-workflow">
+<h3>Basic Workflow<a class="headerlink" href="#basic-workflow" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Dowload a GPX hiking trail (e.g. from Visorando)</p></li>
+<li><p>Load the GPX layer in QGIS</p></li>
+<li><p>Configure parameters:</p>
+<ul class="simple">
+<li><p><strong>Input layer</strong>: GPX tracks layer</p></li>
+<li><p><strong>Departure Date and Time</strong>: When you start hiking</p></li>
+<li><p><strong>Hiking Speed</strong>: Your average speed (km/h)</p></li>
+<li><p><strong>Picnic Point</strong> (optional): Location for a break</p></li>
+<li><p><strong>Reverse Direction</strong>: Reverse direction of the trail</p></li>
+</ul>
+</li>
+<li><p>Click <strong>Run</strong></p></li>
+</ol>
+</section>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt><strong>Input layer</strong></dt><dd><p>Vector line layer representing your hiking trail (<strong>tracks</strong>)</p>
+</dd>
+<dt><strong>Departure Date and Time</strong></dt><dd><p>The date and time when you start your hike (Local Time): used to calculate solar position throughout the trail</p>
+</dd>
+<dt><strong>Average Hiking Speed (km/h)</strong></dt><dd><p>Your expected hiking speed (default: 5.0 km/h)</p>
+</dd>
+<dt><strong>Picnic Break Location</strong> (optional)</dt><dd><p>Click on the map to set a break point (button to the right of the input box)</p>
+</dd>
+<dt><strong>Picnic Duration (minutes)</strong> (optional)</dt><dd><p>How long your break will last (default: 60 minutes)</p>
+</dd>
+<dt><strong>Reverse Trail Direction</strong></dt><dd><p>Walk from finish to start instead of start to finish</p>
+</dd>
+<dt><strong>Calculate with Buffer</strong></dt><dd><p>Calculate for center, left 5m, and right 5m of trail to visualize shadow next to trail</p>
+</dd>
+</dl>
+</section>
+<section id="outputs">
+<h3>Outputs<a class="headerlink" href="#outputs" title="Link to this heading">¶</a></h3>
+<p>The plugin generates:</p>
+<ul class="simple">
+<li><p><strong>MNS</strong>: High-resolution surface model around trail</p></li>
+<li><p><strong>Low Resolution MNS</strong>: Larger surface model for long shadows</p></li>
+<li><p><strong>Densified Trail Points</strong>: Color-coded points showing sun/shadow status</p>
+<ul>
+<li><p>🟡 Gold arrows = Sun</p></li>
+<li><p>🔵 Blue arrows = Shadow</p></li>
+</ul>
+</li>
+<li><p><strong>Statistics Table (CSV)</strong>: Summary of time in sun vs shadow</p></li>
+</ul>
+</section>
+<section id="interpretation">
+<h3>Interpretation<a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h3>
+<p>Each point along your trail is classified as either in <strong>sun</strong> or <strong>shadow</strong> based on:</p>
+<ul class="simple">
+<li><p>The sun’s position at the time you reach that point</p></li>
+<li><p>The surrounding terrain (mountains, hills, trees)</p></li>
+<li><p>Your hiking speed and any breaks</p></li>
+</ul>
+<p>The statistics show what percentage of your hike will be in shade vs. sun.</p>
+</section>
+</section>
+<section id="coverage">
+<h2>Coverage<a class="headerlink" href="#coverage" title="Link to this heading">¶</a></h2>
+<p>Works for trails in:</p>
+<ul class="simple">
+<li><p>France Métropole</p></li>
+<li><p>Guadeloupe</p></li>
+<li><p>Réunion</p></li>
+<li><p>Support for possible future IGN elevation data of Overseas France</p></li>
+</ul>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt><strong>Bad request /Failed to dowload data</strong></dt><dd><p>Might be an issue on the servers side, try again.</p>
+</dd>
+<dt><strong>“No candidates found” error</strong></dt><dd><p>Your trail may be outside supported regions (France and French territories).</p>
+</dd>
+<dt><strong>Very slow processing</strong></dt><dd><p>Long trails require significant computation. Consider splitting your trail into segments.</p>
+</dd>
+</dl>
+</section>
+<section id="license">
+<h2>License<a class="headerlink" href="#license" title="Link to this heading">¶</a></h2>
+<p>GPL v2 or later</p>
+</section>
+<section id="author">
+<h2>Author<a class="headerlink" href="#author" title="Link to this heading">¶</a></h2>
+<p>Yolanda Seifert</p>
+</section>
+<section id="support">
+<h2>Support<a class="headerlink" href="#support" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>GitHub Issues: <a class="reference external" href="https://github.com/yolanda225/qgis-marche-a-lombre/issues">https://github.com/yolanda225/qgis-marche-a-lombre/issues</a></p></li>
+<li><p>Repository: <a class="reference external" href="https://github.com/yolanda225/qgis-marche-a-lombre">https://github.com/yolanda225/qgis-marche-a-lombre</a></p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="#">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Welcome to MarcheALOmbre’s documentation!</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#requirements">Requirements</a></li>
+<li><a class="reference internal" href="#installation">Installation</a><ul>
+<li><a class="reference internal" href="#from-qgis-plugin-repository">From QGIS Plugin Repository</a></li>
+<li><a class="reference internal" href="#manual-installation">Manual Installation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#usage">Usage</a><ul>
+<li><a class="reference internal" href="#basic-workflow">Basic Workflow</a></li>
+<li><a class="reference internal" href="#parameters">Parameters</a></li>
+<li><a class="reference internal" href="#outputs">Outputs</a></li>
+<li><a class="reference internal" href="#interpretation">Interpretation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coverage">Coverage</a></li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li><a class="reference internal" href="#license">License</a></li>
+<li><a class="reference internal" href="#author">Author</a></li>
+<li><a class="reference internal" href="#support">Support</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="api/modules.html"
+                          title="next chapter">Technical Documentation</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api/modules.html" title="Technical Documentation"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">MarcheALOmbre 0.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to MarcheALOmbre’s documentation!</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2013, Yolanda Seifert.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

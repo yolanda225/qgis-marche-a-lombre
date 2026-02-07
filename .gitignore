@@ -6,9 +6,13 @@ __pycache__/
 # environment
 .venv
 
-# built documentation
-help/build/
-
 # plugin builder
 README.txt
 README.html
+
+# Compiled translation files
+*.qm
+
+# Generated UI and Resource files
+ui_*.py
+*_rc.py
