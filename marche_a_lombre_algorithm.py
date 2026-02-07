@@ -258,6 +258,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                             project_crs=picnic_point_crs)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
+        feedback.pushInfo(f"Download Digital Terrain Model (MNT) from IGN...")
         # Generate a temporary file path for the MNT
         mnt_path = QgsProcessingUtils.generateTempFilename('mnt_elevation.tif')
         target_crs = trail.target_crs
@@ -277,13 +278,13 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
 
         if not success_mnt:
             raise QgsProcessingException("Failed to download MNT data.")
-        feedback.pushInfo(f"Downloading MNT for trail elevation data...")
         
         # Integrate MNT into Trail (Sample Z values)
-        feedback.pushInfo("Sampling elevation for trail points...")
+        feedback.pushInfo("Using MNT for trail point elevation values...")
         trail.sample_elevation(mnt_path)
 
         ########################## MNS DOWNLOAD (for Shade) ############################
+        feedback.pushInfo(f"Download Digital Surface Model (MNS) from IGN...")
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
         low_res_path = self.parameterAsOutputLayer(parameters, self.LOW_RES_MNS, context)
         

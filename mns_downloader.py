@@ -221,6 +221,7 @@ class MNSDownloader:
         self.read_tif(trail_extent, high_res, high_res_path, input_crs=input_crs)
 
         # Low-Res (greater extent)
+        self.log("Downloading large Low Resolution MNS for obstacles at greater distance (e.g. mountains)")
         buffer_dist = 22000.0 # altitude difference of 2000m with solar elevation of 5° casts 22km shadow
         buffer_n = buffer_dist
         buffer_s = buffer_dist

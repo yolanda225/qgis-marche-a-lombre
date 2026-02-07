@@ -159,7 +159,11 @@ class Trail:
             if geom.isMultipart():
                 lines = geom.asMultiPolyline()
             else:
-                lines = [geom.asPolyline()]
+                try:
+                    lines = [geom.asPolyline()]
+                except Exception as e:
+                    raise Exception(f"{e}. Input layer must be tracks.")
+            
 
             for line in lines:
                 transformed_vertices = []
@@ -213,7 +217,7 @@ class Trail:
                     prev_pt = pt_l93
 
         if not center_points:
-            raise Exception("No trail points could be processed.")
+            raise Exception("No trail points could be processed. Input layer must be tracks.")
         
         if transformed_break_point:
             # Find the closest point to break location
@@ -228,7 +232,6 @@ class Trail:
                     closest_idx = i
             
             # Add 1 hour to all points after the break
-            self.log(f"Minimum dist to break point: {min_dist}")
             if min_dist < 5000: # only apply if the point is somewhat near the trail
                 print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
                 for i in range(closest_idx, len(center_points)):
