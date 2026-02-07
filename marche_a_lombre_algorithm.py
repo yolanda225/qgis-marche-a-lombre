@@ -31,10 +31,9 @@ __revision__ = '$Format:%H$'
 import os
 import inspect
 import math
-import processing
 from osgeo import gdal
-from qgis.PyQt.QtGui import QIcon, QColor
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType
 from qgis.core import (QgsProcessing,
                         QgsFeatureSink,
                         QgsProcessingAlgorithm,
@@ -168,23 +167,6 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-
-        # We add a feature sink in which to store our processed features (this
-        # usually takes the form of a newly created vector layer when the
-        # algorithm is run in QGIS).
-        # self.addParameter(
-        #     QgsProcessingParameterFeatureSink(
-        #         self.OUTPUT,
-        #         self.tr('Output layer')
-        #     )
-        # )
-        self.addParameter(
-            QgsProcessingParameterRasterDestination(
-                self.OUTPUT,
-                self.tr('MNS')
-            )
-        )
-
         self.addParameter(
             QgsProcessingParameterFeatureSink(
                 self.OUTPUT_POINTS,
@@ -196,7 +178,14 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterRasterDestination(
                 self.LOW_RES_MNS,
-                self.tr('Low Resolution MNS (Horizon)')
+                self.tr('Low Resolution MNS (15m)')
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterRasterDestination(
+                self.OUTPUT,
+                self.tr('High Resolution MNS (0.5m)')
             )
         )
 
@@ -357,18 +346,18 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         ########################## WRITE OUTPUT POINTS ##########################
         # Define attribute table columns
         fields = QgsFields()
-        fields.append(QgsField("id", QVariant.Int))
-        fields.append(QgsField("status", QVariant.String))     # Sunny / Shady
-        fields.append(QgsField("is_shadow", QVariant.Int))     # 0 / 1
-        fields.append(QgsField("x_proj", QVariant.Double))      # Lambert-93 X
-        fields.append(QgsField("y_proj", QVariant.Double))      # Lambert-93 Y
-        fields.append(QgsField("z_mnt", QVariant.Double))      # Altitude
-        fields.append(QgsField("latitude", QVariant.Double))   # WGS84 Lat
-        fields.append(QgsField("longitude", QVariant.Double))  # WGS84 Lon
-        fields.append(QgsField("arrival_time", QVariant.DateTime)) # Time
-        fields.append(QgsField("elevation_deg", QVariant.Double)) # Sun elevation angle
-        fields.append(QgsField("azimuth_deg", QVariant.Double)) # Sun azimtuh angle
-        fields.append(QgsField("course", QVariant.Double))
+        fields.append(QgsField("id", QMetaType.Int))
+        fields.append(QgsField("status", QMetaType.QString))    # Sunny / Shady
+        fields.append(QgsField("is_shadow", QMetaType.Int))     # 0 / 1
+        fields.append(QgsField("x_proj", QMetaType.Double))     # Lambert-93 X
+        fields.append(QgsField("y_proj", QMetaType.Double))     # Lambert-93 Y
+        fields.append(QgsField("z_mnt", QMetaType.Double))      # Altitude
+        fields.append(QgsField("latitude", QMetaType.Double))   # WGS84 Lat
+        fields.append(QgsField("longitude", QMetaType.Double))  # WGS84 Lon
+        fields.append(QgsField("arrival_time", QMetaType.QDateTime)) # Time
+        fields.append(QgsField("elevation_deg", QMetaType.Double)) # Sun elevation angle
+        fields.append(QgsField("azimuth_deg", QMetaType.Double)) # Sun azimtuh angle
+        fields.append(QgsField("course", QMetaType.Double))
 
         (point_sink, point_dest_id) = self.parameterAsSink(
             parameters, 

@@ -60,7 +60,7 @@ class MNSDownloader:
         Raises:
             Exception: If the network request fails
         """
-        if self._capabilities_xml_cache:
+        if self._capabilities_xml_cache is not None:
             return self._capabilities_xml_cache
 
         self.log("Fetching WMS Capabilities...")
