@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Part of MarcheALOmbre QGIS Plugin
+Copyright (C) 2025 Yolanda Seifert
+Licensed under GPL v2+
+"""
 import os
 import time
 import math
@@ -169,7 +174,7 @@ class MNSDownloader:
         except Exception as e:
             return False, f"Validation Exception: {str(e)}"
         
-    def download_dual_quality_mns(self, trail_extent, high_res_path, low_res_path, trail_lat, input_crs, high_res=0.5, low_res=30.0):
+    def download_dual_quality_mns(self, trail_extent, high_res_path, low_res_path, trail_lat, input_crs, high_res=0.5, low_res=15.0):
         """Download two MNS, one high quality around the trail and one low resolution with a greater extent for longer shadows
 
         Args:
@@ -423,9 +428,13 @@ class MNSDownloader:
         if ds is None:
             raise Exception("Could not open file with GDAL.")
         
+        nodata_val = -9999.0
         band = ds.GetRasterBand(1)
+        data = band.ReadAsArray()
+        data[data < -1000] = nodata_val
+        band.WriteArray(data) 
         if band:
-            band.SetNoDataValue(-9999.0)
+            band.SetNoDataValue(nodata_val)
 
         x_res = (extent.xMaximum() - extent.xMinimum()) / width
         y_res = (extent.yMaximum() - extent.yMinimum()) / height
@@ -448,4 +457,5 @@ class MNSDownloader:
         
         ds.SetProjection(srs.ExportToWkt())
         # Close the file
+        band.FlushCache()
         ds = None

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Part of MarcheALOmbre QGIS Plugin
+Copyright (C) 2025 Yolanda Seifert
+Licensed under GPL v2+
+"""
 import numpy as np
 import math
 from osgeo import gdal
