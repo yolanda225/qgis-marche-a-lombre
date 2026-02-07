@@ -5,7 +5,7 @@ try:
     import pvlib
     HAS_PVLIB = True
 except (ImportError, ValueError, RuntimeError, OSError) as e:
-    print(f"PVLib import failed ({e}).")
+    print(f"PVLib import failed ({e}). Using manual Solar Position Calculation")
     HAS_PVLIB = False
 
 class TrailPoint:
@@ -24,17 +24,25 @@ class TrailPoint:
         Calculates Solar Azimuth and Elevation for a given place and time
         
         Args:
-            lat_deg (float): Latitude in degrees
-            lon_deg (float): Longitude in degrees
-            dt (datetime): A datetime object in utc
+            dt (datetime): A datetime object
 
         Returns:
             tuple (float): (elevation, azimuth) in radians
         """
         dt = dt.toUTC().toPyDateTime()
-        # Calculate time variables
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+
+        if HAS_PVLIB:
+            try:
+                sp = pvlib.solarposition.get_solarposition(dt, self.lat, self.lon, altitude=None, pressure=None, method='nrel_numpy')
+                azimuth_pvlib = sp['azimuth'].iloc[0]
+                elevation_pvlib = 90-sp['zenith'].iloc[0]
+                return (math.radians(elevation_pvlib), math.radians(azimuth_pvlib))
+            except Exception as e:
+                print(f"PVLib failed, falling back to manual: {e}")
+        
+        # Calculate time variables
         start_of_year = datetime(dt.year, 1, 1, tzinfo=timezone.utc)
         day_of_year = (dt - start_of_year).days + 1
         hour_decimal = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
@@ -78,16 +86,5 @@ class TrailPoint:
         azimuth_rad = math.atan2(y, x)
         # Normalize to 0-2pi
         azimuth_rad = (azimuth_rad + 2 * math.pi) % (2 * math.pi)
-
-        # Validation
-        if HAS_PVLIB:
-            sp = pvlib.solarposition.get_solarposition(dt, self.lat, self.lon, altitude=None, pressure=None, method='nrel_numpy')
-            azimuth_pvlib = sp['azimuth'].iloc[0]
-            elevation_pvlib = 90-sp['zenith'].iloc[0]
-            diff_elev = abs(math.degrees(elevation_rad) - elevation_pvlib)
-            diff_az = abs(math.degrees(azimuth_rad) - azimuth_pvlib)
-            if diff_az > 180:
-                diff_az = 360 - diff_az  # Handle 360 wrap-around
-            return (math.radians(elevation_pvlib), math.radians(azimuth_pvlib))
 
         return (elevation_rad, azimuth_rad)

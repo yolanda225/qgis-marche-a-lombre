@@ -220,8 +220,6 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         # dictionary returned by the processAlgorithm function.
         source = self.parameterAsSource(parameters, self.INPUT, context)
         departure_dt = self.parameterAsDateTime(parameters, self.DEPARTURE_TIME, context)
-        time_spec = departure_dt.timeSpec() 
-        departure_utc = departure_dt.toUTC()
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
         picnic_duration = self.parameterAsDouble(parameters, self.PICNIC_DURATION, context)
@@ -254,7 +252,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             feedback=feedback
         )
         trail.process_trail(source_tracks=source, 
-                            start_time=departure_utc, 
+                            start_time=departure_dt, 
                             break_point=picnic_point, 
                             picnic_duration=picnic_duration,
                             reverse=reverse_direction,
