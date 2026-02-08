@@ -34,6 +34,8 @@ class Trail:
         self.extent = QgsRectangle()
         self.feedback = feedback
         self.center_lat = 0.0
+        self.break_index = -1
+        self.break_duration = 0
 
     def log(self, message):
         """
@@ -221,7 +223,6 @@ class Trail:
                 verts = densified_geom.vertices()
                 prev_pt = None
                 
-                solar_pos=None
                 for v in verts:
                     pt_l93 = QgsPointXY(v.x(), v.y())
                     geo_pt = self.to_wgs84.transform(pt_l93)
@@ -272,6 +273,8 @@ class Trail:
             # Add 1 hour to all points after the break
             if min_dist < 5000: # only apply if the point is somewhat near the trail
                 print(f"Applying 1h break at point {closest_idx} (Dist: {min_dist:.1f}m)")
+                self.break_index = closest_idx
+                self.break_duration = int(60 * picnic_duration)
                 for i in range(closest_idx, len(center_points)):
                     tp = center_points[i]
                     tp.datetime = tp.datetime.addSecs(int(60*picnic_duration))
@@ -330,7 +333,8 @@ class Trail:
                     tp_left = TrailPoint(
                         x=lx, y=ly, z=0,
                         lat=l_geo.y(), lon=l_geo.x(),
-                        datetime=current_tp.datetime
+                        datetime=current_tp.datetime,
+                        convergence=meridian_convergence
                     )
                     tp_left.trail_type = "Left"
                     tp_left.solar_pos = current_tp.solar_pos
@@ -348,7 +352,8 @@ class Trail:
                     tp_right = TrailPoint(
                         x=rx, y=ry, z=0,
                         lat=r_geo.y(), lon=r_geo.x(),
-                        datetime=current_tp.datetime
+                        datetime=current_tp.datetime,
+                        convergence=meridian_convergence
                     )
                     tp_right.trail_type = "Right"
                     tp_right.solar_pos = current_tp.solar_pos
@@ -431,7 +436,11 @@ class Trail:
             # Update time
             segment_time = dist_horizontal / adjusted_speed
             total_time += segment_time
+            if i == self.break_index:
+                total_time += self.break_duration
             curr_tp.datetime = start_time.addSecs(int(total_time))
+            # Recalculate solar position since the time changed
+            curr_tp.solar_pos = curr_tp.calc_solar_pos(curr_tp.datetime)
         
         # If buffered, copy times from center to left and right trails
         if buffered:

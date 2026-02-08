@@ -35,7 +35,9 @@ class TrailPoint:
         self.z = z
         self.datetime = datetime
         self.convergence = convergence
-        self.solar_pos, self.azimuth_grid = self.calc_solar_pos(self.datetime)
+        elev, az_true, self.azimuth_grid = self.calc_solar_pos(self.datetime)
+        self.solar_pos = (elev, az_true)
+
 
     def calc_solar_pos(self, dt):
         """
@@ -60,7 +62,7 @@ class TrailPoint:
                 az_rad = math.radians(elevation_pvlib)
                 # Apply Convergence (True Azimuth -> Grid Azimuth)
                 az_grid= (az_rad + self.convergence + 2 * math.pi) % (2 * math.pi)
-                return (az_rad, math.radians(azimuth_pvlib)), az_grid
+                return az_rad, math.radians(azimuth_pvlib), az_grid
             except Exception as e:
                 print(f"PVLib failed, falling back to manual: {e}")
         
@@ -110,4 +112,4 @@ class TrailPoint:
         azimuth_rad = (azimuth_rad + 2 * math.pi) % (2 * math.pi)
         az_grid = (azimuth_rad + self.convergence + 2 * math.pi) % (2 * math.pi)
 
-        return (elevation_rad, azimuth_rad), az_grid
+        return elevation_rad, azimuth_rad, az_grid
