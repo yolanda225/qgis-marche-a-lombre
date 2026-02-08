@@ -86,7 +86,7 @@ class Trail:
             return QgsGeometry.fromPolylineXY(nodes)
         return geometry
 
-    def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False, project_crs=None):
+    def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False, project_crs=None, adjust_for_slope=False):
         """Processes input GPX source tracks into a list of TrailPoint objects
 
         Args:
@@ -97,12 +97,14 @@ class Trail:
             reverse (bool, optional): Optional reversing of the trails direction. Defaults to False.
             buffer (bool, optional): Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.
             project_crs (QgsCoordinateReferenceSystem, optional): The CRS for transforming break_point. Defaults to None.
+            adjust_for_slope (bool): If to adjust speed based on terrain slope. Defaults to False.
 
         Raises:
             Exception: If coordinate transformation fails or no valid trail points are generated
         """
         wgs84_extent = source_tracks.sourceExtent()
         self.center_lat = wgs84_extent.center().y()
+        self.adjust_for_slope = adjust_for_slope
 
         self.target_crs, region_name = self._determine_best_crs(source_tracks.sourceExtent())
         self.log(f"Detected Region: {region_name}. Switching to CRS: {self.target_crs}")
@@ -200,8 +202,11 @@ class Trail:
                         dist = pt_l93.distance(prev_pt)
                         total_dist += dist
 
-                    seconds_elapsed = total_dist / self.speed
-                    current_time = start_time.addSecs(int(seconds_elapsed))
+                    if adjust_for_slope:
+                        current_time = start_time  # Placeholder, will recalculate
+                    else:
+                        seconds_elapsed = total_dist / self.speed
+                        current_time = start_time.addSecs(int(seconds_elapsed))
                     
                     # Create TrailPoint object
                     tp = TrailPoint(
@@ -334,12 +339,66 @@ class Trail:
         else:
             raise Exception("No trail points could be processed.")
         
-    def sample_elevation(self, mnt_path):
+    def calculate_times_with_slope(self, start_time):
+        """
+        Recalculate arrival times for all trail points accounting for slope
+        Must be called after sample_elevation() has populated z values
+        
+        Uses Tobler's hiking function:
+        - Flat terrain: base speed
+        - Uphill: speed decreases
+        - Downhill: speed increases
+
+        Args:
+            start_time (QDateTime): Start time for recalculating arrival times
+        """
+        if not self.trail_points:
+            return
+        
+        self.log(f"Recalculating times with slope adjustment using Tobler's hiking function...")
+        
+        total_time = 0.0  # seconds
+        self.trail_points[0].datetime = start_time
+        
+        for i in range(1, len(self.trail_points)):
+            prev_tp = self.trail_points[i-1]
+            curr_tp = self.trail_points[i]
+            
+            # Horizontal distance
+            dist_horizontal = math.sqrt(
+                (curr_tp.x - prev_tp.x)**2 + 
+                (curr_tp.y - prev_tp.y)**2
+            )
+            
+            if self.adjust_for_slope and dist_horizontal > 0:
+                # Calculate slope
+                delta_z = curr_tp.z - prev_tp.z
+                slope = delta_z / dist_horizontal
+                
+                # Tobler's hiking function
+                speed_factor = math.exp(-3.5 * abs(slope + 0.05))
+
+                # Limit speed between 30% and 150% of base speed
+                speed_factor = max(0.3, min(speed_factor, 1.5))
+                
+                adjusted_speed = self.speed * speed_factor
+            else:
+                adjusted_speed = self.speed
+            
+            # Update time
+            segment_time = dist_horizontal / adjusted_speed
+            total_time += segment_time
+            curr_tp.datetime = start_time.addSecs(int(total_time))
+        
+        self.log(f"Time calculation complete. Total hiking time: {total_time/3600:.2f} hours")
+        
+    def sample_elevation(self, mnt_path, start_time):
         """
         Loads the MNT raster from the given path and updates the z-value of all trail points
 
         Args:
             mnt_path (str): File path to the MNT raster
+            start_time (QDateTime): Start time for recalculating arrival times
         """
         # Load the MNT as a raster layer
         rlayer = QgsRasterLayer(mnt_path, "mnt_sampling")
@@ -358,3 +417,9 @@ class Trail:
                 tp.z = val
             else:
                 tp.z = 0.0 # Default if outside raster or nodata
+        
+        # Recalculate times with slope adjustment if enabled
+        if self.adjust_for_slope:
+            self.calculate_times_with_slope(start_time)
+        else:
+            self.log("Slope adjustment disabled - using constant speed")

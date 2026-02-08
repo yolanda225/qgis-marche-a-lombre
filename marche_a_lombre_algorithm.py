@@ -90,6 +90,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
     INPUT = 'INPUT'
     DEPARTURE_TIME = 'DEPARTURE_TIME'
     HIKING_SPEED = 'HIKING_SPEED'
+    ADJUST_FOR_SLOPE = 'ADJUST_FOR_SLOPE'
     PICNIC_POINT = 'PICNIC_POINT'
     PICNIC_DURATION = 'PICNIC_DURATION'
     REVERSE_DIRECTION = 'REVERSE_DIRECTION'
@@ -127,8 +128,16 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                 self.HIKING_SPEED,
                 self.tr('Average Hiking Speed (km/h)'),
                 type=QgsProcessingParameterNumber.Double,
-                defaultValue=5.0,  # A standard hiking speed
+                defaultValue=4.0,  # A standard hiking speed
                 minValue=0.0 
+            )
+        )
+
+        self.addParameter(
+            QgsProcessingParameterBoolean(
+                'ADJUST_FOR_SLOPE',
+                self.tr('Adjust hiking speed for slope (recommended for mountainous regions)'),
+                defaultValue=False
             )
         )
 
@@ -208,6 +217,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         source = self.parameterAsSource(parameters, self.INPUT, context)
         departure_dt = self.parameterAsDateTime(parameters, self.DEPARTURE_TIME, context)
         speed = self.parameterAsDouble(parameters, self.HIKING_SPEED, context)
+        adjust_for_slope = self.parameterAsBool(parameters, 'ADJUST_FOR_SLOPE', context) 
         picnic_point = self.parameterAsPoint(parameters, self.PICNIC_POINT, context)
         picnic_duration = self.parameterAsDouble(parameters, self.PICNIC_DURATION, context)
         picnic_point_crs = self.parameterAsPointCrs(parameters, self.PICNIC_POINT, context)
@@ -244,7 +254,8 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
                             picnic_duration=picnic_duration,
                             reverse=reverse_direction,
                             buffer=buffer_mode,
-                            project_crs=picnic_point_crs)
+                            project_crs=picnic_point_crs,
+                            adjust_for_slope=adjust_for_slope)
 
         ########################## MNT DOWNLOAD (For Z Values) ##################
         feedback.pushInfo(f"Download Digital Terrain Model (MNT) from IGN...")
@@ -270,7 +281,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         
         # Integrate MNT into Trail (Sample Z values)
         feedback.pushInfo("Using MNT for trail point elevation values...")
-        trail.sample_elevation(mnt_path)
+        trail.sample_elevation(mnt_path, departure_dt)
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         feedback.pushInfo(f"Download Digital Surface Model (MNS) from IGN...")
