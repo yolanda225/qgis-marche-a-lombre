@@ -231,6 +231,9 @@ class Trail:
         if not center_points:
             raise Exception("No trail points could be processed. Input layer must be tracks.")
         
+        if total_dist > 45000:
+            self.log(f"WARNING: Trail length is {total_dist/1000:.1f} km, Processing may be slow.")
+        
         if transformed_break_point:
             # Find the closest point to break location
             closest_idx = 0
