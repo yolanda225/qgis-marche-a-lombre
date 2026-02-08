@@ -281,7 +281,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         
         # Integrate MNT into Trail (Sample Z values)
         feedback.pushInfo("Using MNT for trail point elevation values...")
-        trail.sample_elevation(mnt_path, departure_dt)
+        trail.sample_elevation(mnt_path, departure_dt, buffer_mode)
 
         ########################## MNS DOWNLOAD (for Shade) ############################
         feedback.pushInfo(f"Download Digital Surface Model (MNS) from IGN...")

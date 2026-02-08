@@ -253,7 +253,7 @@ class Trail:
                     # Recalculate solar position for the new time
                     tp.solar_pos = tp.calc_solar_pos(tp.datetime)
             else:
-                 print(f"Break point too far from trail ({min_dist:.1f}m). Ignored.")
+                 self.log(f"Break point too far from trail ({min_dist:.1f}m). Ignored.")
         
         # Add center points to main list
         self.trail_points.extend(center_points)
@@ -346,7 +346,7 @@ class Trail:
         else:
             raise Exception("No trail points could be processed.")
         
-    def calculate_times_with_slope(self, start_time):
+    def calculate_times_with_slope(self, start_time, buffered):
         """
         Recalculate arrival times for all trail points accounting for slope
         Must be called after sample_elevation() has populated z values
@@ -358,18 +358,28 @@ class Trail:
 
         Args:
             start_time (QDateTime): Start time for recalculating arrival times
+            buffer (bool): If True, only calculate for center trail and copy times to left/right
         """
         if not self.trail_points:
             return
         
         self.log(f"Recalculating times with slope adjustment using Tobler's hiking function...")
         
-        total_time = 0.0  # seconds
-        self.trail_points[0].datetime = start_time
+        # Determine which points to calculate
+        if buffered:
+            num_points = len(self.trail_points)
+            center_count = num_points // 3
+            points_to_calculate = self.trail_points[:center_count]
+        else:
+            points_to_calculate = self.trail_points
         
-        for i in range(1, len(self.trail_points)):
-            prev_tp = self.trail_points[i-1]
-            curr_tp = self.trail_points[i]
+        # Calculate times
+        total_time = 0.0  # seconds
+        points_to_calculate[0].datetime = start_time
+        
+        for i in range(1, len(points_to_calculate)):
+            prev_tp = points_to_calculate[i-1]
+            curr_tp = points_to_calculate[i]
             
             # Horizontal distance
             dist_horizontal = math.sqrt(
@@ -397,15 +407,29 @@ class Trail:
             total_time += segment_time
             curr_tp.datetime = start_time.addSecs(int(total_time))
         
+        # If buffered, copy times from center to left and right trails
+        if buffered:
+            left_points = self.trail_points[center_count:2*center_count]
+            right_points = self.trail_points[2*center_count:]
+            
+            for i in range(len(points_to_calculate)):
+                if i < len(left_points):
+                    left_points[i].datetime = points_to_calculate[i].datetime
+                    left_points[i].solar_pos = points_to_calculate[i].solar_pos
+                if i < len(right_points):
+                    right_points[i].datetime = points_to_calculate[i].datetime
+                    right_points[i].solar_pos = points_to_calculate[i].solar_pos
+        
         self.log(f"Time calculation complete. Total hiking time: {total_time/3600:.2f} hours")
         
-    def sample_elevation(self, mnt_path, start_time):
+    def sample_elevation(self, mnt_path, start_time, buffered):
         """
         Loads the MNT raster from the given path and updates the z-value of all trail points
 
         Args:
             mnt_path (str): File path to the MNT raster
             start_time (QDateTime): Start time for recalculating arrival times
+            buffer (bool): For time recalculation in calculate_times_with_slope
         """
         # Load the MNT as a raster layer
         rlayer = QgsRasterLayer(mnt_path, "mnt_sampling")
@@ -427,6 +451,6 @@ class Trail:
         
         # Recalculate times with slope adjustment if enabled
         if self.adjust_for_slope:
-            self.calculate_times_with_slope(start_time)
+            self.calculate_times_with_slope(start_time, buffered)
         else:
             self.log("Slope adjustment disabled - using constant speed")

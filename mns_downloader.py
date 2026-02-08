@@ -416,11 +416,9 @@ class MNSDownloader:
         while reply.isRunning():
             if self.feedback and self.feedback.isCanceled():
                 reply.abort()
-                if self.feedback:
-                    self.feedback.reportError("Download canceled by user.")
+                self.feedback.reportError("Download canceled by user.")
                 return False
             QCoreApplication.processEvents()
-            time.sleep(0.05)
 
         # Check HTTP Status
         if reply.error() != QNetworkReply.NoError:
