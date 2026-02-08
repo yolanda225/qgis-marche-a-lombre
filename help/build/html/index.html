@@ -65,7 +65,7 @@
 <li><p>Dynamic layer retrieval from IGNs Web Map Service (<a class="reference external" href="https://data.geopf.fr/wms*r?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities">https://data.geopf.fr/wms*r?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities</a>)</p></li>
 <li><p>Adjustable hiking speed and picnic break</p></li>
 <li><p>Reversal of trail</p></li>
-<li><p>Buffered calculation (calculation also 5m to the right and left of the trail to )</p></li>
+<li><p>Buffered calculation (calculation also 5m to the right and left of the trail to visualize shadow next to trail)</p></li>
 <li><p>Vector output with color-coded trail segments</p></li>
 <li><p>Statistics output (percentage sunny, etc.)</p></li>
 </ul>
@@ -81,8 +81,11 @@
 <li><p>gdal</p></li>
 </ul>
 </li>
-<li><p>Python dependencies (optional and not included in QGIS):
-* pvlib (If not installed, a manual solar position calculation is used)</p></li>
+<li><p>Python dependencies (optional and not included in QGIS):</p>
+<ul>
+<li><p>pvlib (If not installed, a manual solar position calculation is used)</p></li>
+</ul>
+</li>
 </ul>
 </section>
 <section id="installation">
@@ -113,15 +116,7 @@
 <ol class="arabic simple">
 <li><p>Dowload a GPX hiking trail (e.g. from Visorando)</p></li>
 <li><p>Load the GPX layer in QGIS</p></li>
-<li><p>Configure parameters:</p>
-<ul class="simple">
-<li><p><strong>Input layer</strong>: GPX tracks layer</p></li>
-<li><p><strong>Departure Date and Time</strong>: When you start hiking</p></li>
-<li><p><strong>Hiking Speed</strong>: Your average speed (km/h)</p></li>
-<li><p><strong>Picnic Point</strong> (optional): Location for a break</p></li>
-<li><p><strong>Reverse Direction</strong>: Reverse direction of the trail</p></li>
-</ul>
-</li>
+<li><p>Open the plugin and configure parameters</p></li>
 <li><p>Click <strong>Run</strong></p></li>
 </ol>
 </section>
@@ -133,6 +128,8 @@
 <dt><strong>Departure Date and Time</strong></dt><dd><p>The date and time when you start your hike (Local Time): used to calculate solar position throughout the trail</p>
 </dd>
 <dt><strong>Average Hiking Speed (km/h)</strong></dt><dd><p>Your expected hiking speed (default: 5.0 km/h)</p>
+</dd>
+<dt><strong>Adjust hiking speed for slope</strong></dt><dd><p>Adjust your hiking speed using Tobler’s hiking function</p>
 </dd>
 <dt><strong>Picnic Break Location</strong> (optional)</dt><dd><p>Click on the map to set a break point (button to the right of the input box)</p>
 </dd>
@@ -159,16 +156,6 @@
 <li><p><strong>Statistics Table (CSV)</strong>: Summary of time in sun vs shadow</p></li>
 </ul>
 </section>
-<section id="interpretation">
-<h3>Interpretation<a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h3>
-<p>Each point along your trail is classified as either in <strong>sun</strong> or <strong>shadow</strong> based on:</p>
-<ul class="simple">
-<li><p>The sun’s position at the time you reach that point</p></li>
-<li><p>The surrounding terrain (mountains, hills, trees)</p></li>
-<li><p>Your hiking speed and any breaks</p></li>
-</ul>
-<p>The statistics show what percentage of your hike will be in shade vs. sun.</p>
-</section>
 </section>
 <section id="coverage">
 <h2>Coverage<a class="headerlink" href="#coverage" title="Link to this heading">¶</a></h2>
@@ -177,7 +164,7 @@
 <li><p>France Métropole</p></li>
 <li><p>Guadeloupe</p></li>
 <li><p>Réunion</p></li>
-<li><p>Support for possible future IGN elevation data of Overseas France</p></li>
+<li><p>Support for possible future IGN surface elevation data of Overseas France is integrated</p></li>
 </ul>
 </section>
 <section id="troubleshooting">
@@ -185,9 +172,7 @@
 <dl class="simple">
 <dt><strong>Bad request /Failed to dowload data</strong></dt><dd><p>Might be an issue on the servers side, try again.</p>
 </dd>
-<dt><strong>“No candidates found” error</strong></dt><dd><p>Your trail may be outside supported regions (France and French territories).</p>
-</dd>
-<dt><strong>Very slow processing</strong></dt><dd><p>Long trails require significant computation. Consider splitting your trail into segments.</p>
+<dt><strong>“No candidates found” error</strong></dt><dd><p>The trail may be outside supported regions or no data is available (France and French territories).</p>
 </dd>
 </dl>
 </section>
@@ -231,7 +216,6 @@
 <li><a class="reference internal" href="#basic-workflow">Basic Workflow</a></li>
 <li><a class="reference internal" href="#parameters">Parameters</a></li>
 <li><a class="reference internal" href="#outputs">Outputs</a></li>
-<li><a class="reference internal" href="#interpretation">Interpretation</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#coverage">Coverage</a></li>

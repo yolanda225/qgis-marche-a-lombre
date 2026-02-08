@@ -29,7 +29,7 @@ Features
 * Dynamic layer retrieval from IGNs Web Map Service (https://data.geopf.fr/wms*r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities)
 * Adjustable hiking speed and picnic break
 * Reversal of trail
-* Buffered calculation (calculation also 5m to the right and left of the trail to )
+* Buffered calculation (calculation also 5m to the right and left of the trail to visualize shadow next to trail)
 * Vector output with color-coded trail segments
 * Statistics output (percentage sunny, etc.)
 
@@ -43,6 +43,7 @@ Requirements
   * numpy
   * gdal
 * Python dependencies (optional and not included in QGIS):
+
   * pvlib (If not installed, a manual solar position calculation is used)
 
 Installation
@@ -72,14 +73,7 @@ Basic Workflow
 
 1. Dowload a GPX hiking trail (e.g. from Visorando)
 2. Load the GPX layer in QGIS
-3. Configure parameters:
-   
-   * **Input layer**: GPX tracks layer
-   * **Departure Date and Time**: When you start hiking
-   * **Hiking Speed**: Your average speed (km/h)
-   * **Picnic Point** (optional): Location for a break
-   * **Reverse Direction**: Reverse direction of the trail
-
+3. Open the plugin and configure parameters
 4. Click **Run**
 
 Parameters
@@ -93,6 +87,9 @@ Parameters
 
 **Average Hiking Speed (km/h)**
   Your expected hiking speed (default: 5.0 km/h)
+
+**Adjust hiking speed for slope**
+  Adjust your hiking speed using Tobler's hiking function
 
 **Picnic Break Location** (optional)
   Click on the map to set a break point (button to the right of the input box)
@@ -120,17 +117,6 @@ The plugin generates:
 
 * **Statistics Table (CSV)**: Summary of time in sun vs shadow
 
-Interpretation
-~~~~~~~~~~~~~~
-
-Each point along your trail is classified as either in **sun** or **shadow** based on:
-
-* The sun's position at the time you reach that point
-* The surrounding terrain (mountains, hills, trees)
-* Your hiking speed and any breaks
-
-The statistics show what percentage of your hike will be in shade vs. sun.
-
 Coverage
 --------
 
@@ -139,7 +125,7 @@ Works for trails in:
 * France Métropole
 * Guadeloupe
 * Réunion
-* Support for possible future IGN elevation data of Overseas France
+* Support for possible future IGN surface elevation data of Overseas France is integrated
 
 Troubleshooting
 ---------------
@@ -148,10 +134,7 @@ Troubleshooting
   Might be an issue on the servers side, try again.
 
 **"No candidates found" error**
-  Your trail may be outside supported regions (France and French territories).
-
-**Very slow processing**
-  Long trails require significant computation. Consider splitting your trail into segments.
+  The trail may be outside supported regions or no data is available (France and French territories).
 
 License
 -------

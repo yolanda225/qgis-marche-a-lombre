@@ -1,6 +1,10 @@
 # Marche à l'ombre - QGIS Plugin
 
-Calculate shady and sunny portions of a given hiking trail using time of departure, the calculated solar positions per trail point and terrain/surface elevation data
+Calculate shady and sunny portions of a given hiking trail using time of departure, the calculated solar positions per trail point and terrain/surface elevation data.
+
+The full documentation is available here:
+- [User Documentation](help/build/html/index.html)
+- [Technical Documentation](help/build/html/api/modules.html)
 
 ## Description
 
@@ -11,9 +15,10 @@ This plugin analyzes hiking trails to determine which parts will be in shadow or
 ## Features
 
 - Dynamic layer retrieval from IGNs Web Map Service (https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities)
-- Adjustable hiking speed and picnic break
+- Avergae hiking speed and picnic break
+- Adjust hiking speed to slope using Tobler's hiking function
 - Reversal of trail
-- Buffered calculation (calculation also 5m to the right and left of the trail to )
+- Buffered calculation (calculation also 5m to the right and left of the trail to visualize shadow next to trail)
 - Vector output with color-coded trail segments
 - Statistics output (percentage sunny, etc.)
 
@@ -48,7 +53,7 @@ Works for trails in:
 - France Métropole
 - La Réunion
 - Guadeloupe
-- Support for possible future IGN elevation data 
+- Support for possible future IGN surface elevation data is integrated
 
 ## License
 

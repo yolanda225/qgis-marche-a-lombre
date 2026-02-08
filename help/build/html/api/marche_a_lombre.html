@@ -99,6 +99,11 @@ is not need for additional work.</p>
 <p>All Processing algorithms should extend the QgsProcessingAlgorithm
 class.</p>
 <dl class="py attribute">
+<dt class="sig sig-object py" id="marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.ADJUST_FOR_SLOPE">
+<span class="sig-name descname"><span class="pre">ADJUST_FOR_SLOPE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ADJUST_FOR_SLOPE'</span></em><a class="headerlink" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.ADJUST_FOR_SLOPE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.BUFFER_MODE">
 <span class="sig-name descname"><span class="pre">BUFFER_MODE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'BUFFER_MODE'</span></em><a class="headerlink" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.BUFFER_MODE" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -504,6 +509,42 @@ Licensed under GPL v2+</p>
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">marche_a_lombre.trail.</span></span><span class="sig-name descname"><span class="pre">Trail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_sep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_crs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform_context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feedback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
+<dt class="sig sig-object py" id="marche_a_lombre.trail.Trail.calc_meridian_convergence">
+<span class="sig-name descname"><span class="pre">calc_meridian_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_center</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.calc_meridian_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.calc_meridian_convergence" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates Meridian Convergence correction</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>source_center</strong> (<em>QgsPointXY</em>) – Center point of trail extent</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Convergence value</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="marche_a_lombre.trail.Trail.calculate_times_with_slope">
+<span class="sig-name descname"><span class="pre">calculate_times_with_slope</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffered</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.calculate_times_with_slope"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.calculate_times_with_slope" title="Link to this definition">¶</a></dt>
+<dd><p>Recalculate arrival times for all trail points accounting for slope
+Must be called after sample_elevation() has populated z values</p>
+<p>Uses Tobler’s hiking function:
+- Flat terrain: base speed
+- Uphill: speed decreases
+- Downhill: speed increases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_time</strong> (<em>QDateTime</em>) – Start time for recalculating arrival times</p></li>
+<li><p><strong>buffer</strong> (<em>bool</em>) – If True, only calculate for center trail and copy times to left/right</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="marche_a_lombre.trail.Trail.log">
 <span class="sig-name descname"><span class="pre">log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.log"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.log" title="Link to this definition">¶</a></dt>
 <dd><p>Logs a message to the feedback object</p>
@@ -516,7 +557,7 @@ Licensed under GPL v2+</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="marche_a_lombre.trail.Trail.process_trail">
-<span class="sig-name descname"><span class="pre">process_trail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_tracks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">break_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">picnic_duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.process_trail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.process_trail" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">process_trail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_tracks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">break_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">picnic_duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjust_for_slope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.process_trail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.process_trail" title="Link to this definition">¶</a></dt>
 <dd><p>Processes input GPX source tracks into a list of TrailPoint objects</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -528,6 +569,7 @@ Licensed under GPL v2+</p>
 <li><p><strong>reverse</strong> (<em>bool</em><em>, </em><em>optional</em>) – Optional reversing of the trails direction. Defaults to False.</p></li>
 <li><p><strong>buffer</strong> (<em>bool</em><em>, </em><em>optional</em>) – Optional buffering so that 10m left and right of the trail buffer trails are formed. Defaults to False.</p></li>
 <li><p><strong>project_crs</strong> (<em>QgsCoordinateReferenceSystem</em><em>, </em><em>optional</em>) – The CRS for transforming break_point. Defaults to None.</p></li>
+<li><p><strong>adjust_for_slope</strong> (<em>bool</em>) – If to adjust speed based on terrain slope. Defaults to False.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -555,11 +597,15 @@ Licensed under GPL v2+</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="marche_a_lombre.trail.Trail.sample_elevation">
-<span class="sig-name descname"><span class="pre">sample_elevation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mnt_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.sample_elevation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.sample_elevation" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">sample_elevation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mnt_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffered</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail.html#Trail.sample_elevation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail.Trail.sample_elevation" title="Link to this definition">¶</a></dt>
 <dd><p>Loads the MNT raster from the given path and updates the z-value of all trail points</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>mnt_path</strong> (<em>str</em>) – File path to the MNT raster</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mnt_path</strong> (<em>str</em>) – File path to the MNT raster</p></li>
+<li><p><strong>start_time</strong> (<em>QDateTime</em>) – Start time for recalculating arrival times</p></li>
+<li><p><strong>buffer</strong> (<em>bool</em>) – For time recalculation in calculate_times_with_slope</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -574,7 +620,7 @@ Copyright (C) 2025 Yolanda Seifert
 Licensed under GPL v2+</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="marche_a_lombre.trail_point.TrailPoint">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">marche_a_lombre.trail_point.</span></span><span class="sig-name descname"><span class="pre">TrailPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail_point.html#TrailPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail_point.TrailPoint" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">marche_a_lombre.trail_point.</span></span><span class="sig-name descname"><span class="pre">TrailPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">datetime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convergence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/marche_a_lombre/trail_point.html#TrailPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#marche_a_lombre.trail_point.TrailPoint" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="marche_a_lombre.trail_point.TrailPoint.calc_solar_pos">
@@ -639,6 +685,7 @@ Uses pvlib if installed</p>
 </li>
 <li><a class="reference internal" href="#module-marche_a_lombre.marche_a_lombre_algorithm">marche_a_lombre.marche_a_lombre_algorithm module</a><ul>
 <li><a class="reference internal" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm"><code class="docutils literal notranslate"><span class="pre">MarcheALOmbreAlgorithm</span></code></a><ul>
+<li><a class="reference internal" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.ADJUST_FOR_SLOPE"><code class="docutils literal notranslate"><span class="pre">MarcheALOmbreAlgorithm.ADJUST_FOR_SLOPE</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.BUFFER_MODE"><code class="docutils literal notranslate"><span class="pre">MarcheALOmbreAlgorithm.BUFFER_MODE</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.DEPARTURE_TIME"><code class="docutils literal notranslate"><span class="pre">MarcheALOmbreAlgorithm.DEPARTURE_TIME</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.marche_a_lombre_algorithm.MarcheALOmbreAlgorithm.HIKING_SPEED"><code class="docutils literal notranslate"><span class="pre">MarcheALOmbreAlgorithm.HIKING_SPEED</span></code></a></li>
@@ -704,6 +751,8 @@ Uses pvlib if installed</p>
 </li>
 <li><a class="reference internal" href="#module-marche_a_lombre.trail">marche_a_lombre.trail module</a><ul>
 <li><a class="reference internal" href="#marche_a_lombre.trail.Trail"><code class="docutils literal notranslate"><span class="pre">Trail</span></code></a><ul>
+<li><a class="reference internal" href="#marche_a_lombre.trail.Trail.calc_meridian_convergence"><code class="docutils literal notranslate"><span class="pre">Trail.calc_meridian_convergence()</span></code></a></li>
+<li><a class="reference internal" href="#marche_a_lombre.trail.Trail.calculate_times_with_slope"><code class="docutils literal notranslate"><span class="pre">Trail.calculate_times_with_slope()</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.trail.Trail.log"><code class="docutils literal notranslate"><span class="pre">Trail.log()</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.trail.Trail.process_trail"><code class="docutils literal notranslate"><span class="pre">Trail.process_trail()</span></code></a></li>
 <li><a class="reference internal" href="#marche_a_lombre.trail.Trail.reverse_trail"><code class="docutils literal notranslate"><span class="pre">Trail.reverse_trail()</span></code></a></li>

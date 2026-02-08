@@ -131,6 +131,7 @@
     <span class="n">INPUT</span> <span class="o">=</span> <span class="s1">&#39;INPUT&#39;</span>
     <span class="n">DEPARTURE_TIME</span> <span class="o">=</span> <span class="s1">&#39;DEPARTURE_TIME&#39;</span>
     <span class="n">HIKING_SPEED</span> <span class="o">=</span> <span class="s1">&#39;HIKING_SPEED&#39;</span>
+    <span class="n">ADJUST_FOR_SLOPE</span> <span class="o">=</span> <span class="s1">&#39;ADJUST_FOR_SLOPE&#39;</span>
     <span class="n">PICNIC_POINT</span> <span class="o">=</span> <span class="s1">&#39;PICNIC_POINT&#39;</span>
     <span class="n">PICNIC_DURATION</span> <span class="o">=</span> <span class="s1">&#39;PICNIC_DURATION&#39;</span>
     <span class="n">REVERSE_DIRECTION</span> <span class="o">=</span> <span class="s1">&#39;REVERSE_DIRECTION&#39;</span>
@@ -170,8 +171,16 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">HIKING_SPEED</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s1">&#39;Average Hiking Speed (km/h)&#39;</span><span class="p">),</span>
                 <span class="nb">type</span><span class="o">=</span><span class="n">QgsProcessingParameterNumber</span><span class="o">.</span><span class="n">Double</span><span class="p">,</span>
-                <span class="n">defaultValue</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>  <span class="c1"># A standard hiking speed</span>
+                <span class="n">defaultValue</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>  <span class="c1"># A standard hiking speed</span>
                 <span class="n">minValue</span><span class="o">=</span><span class="mf">0.0</span> 
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">addParameter</span><span class="p">(</span>
+            <span class="n">QgsProcessingParameterBoolean</span><span class="p">(</span>
+                <span class="s1">&#39;ADJUST_FOR_SLOPE&#39;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s1">&#39;Adjust hiking speed for slope (recommended for mountainous regions)&#39;</span><span class="p">),</span>
+                <span class="n">defaultValue</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
         <span class="p">)</span>
 
@@ -254,6 +263,7 @@
         <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsSource</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">INPUT</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
         <span class="n">departure_dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsDateTime</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEPARTURE_TIME</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
         <span class="n">speed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsDouble</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HIKING_SPEED</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+        <span class="n">adjust_for_slope</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsBool</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="s1">&#39;ADJUST_FOR_SLOPE&#39;</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span> 
         <span class="n">picnic_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsPoint</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PICNIC_POINT</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
         <span class="n">picnic_duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsDouble</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PICNIC_DURATION</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
         <span class="n">picnic_point_crs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameterAsPointCrs</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">PICNIC_POINT</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
@@ -290,7 +300,8 @@
                             <span class="n">picnic_duration</span><span class="o">=</span><span class="n">picnic_duration</span><span class="p">,</span>
                             <span class="n">reverse</span><span class="o">=</span><span class="n">reverse_direction</span><span class="p">,</span>
                             <span class="n">buffer</span><span class="o">=</span><span class="n">buffer_mode</span><span class="p">,</span>
-                            <span class="n">project_crs</span><span class="o">=</span><span class="n">picnic_point_crs</span><span class="p">)</span>
+                            <span class="n">project_crs</span><span class="o">=</span><span class="n">picnic_point_crs</span><span class="p">,</span>
+                            <span class="n">adjust_for_slope</span><span class="o">=</span><span class="n">adjust_for_slope</span><span class="p">)</span>
 
         <span class="c1">########################## MNT DOWNLOAD (For Z Values) ##################</span>
         <span class="n">feedback</span><span class="o">.</span><span class="n">pushInfo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Download Digital Terrain Model (MNT) from IGN...&quot;</span><span class="p">)</span>
@@ -316,7 +327,7 @@
         
         <span class="c1"># Integrate MNT into Trail (Sample Z values)</span>
         <span class="n">feedback</span><span class="o">.</span><span class="n">pushInfo</span><span class="p">(</span><span class="s2">&quot;Using MNT for trail point elevation values...&quot;</span><span class="p">)</span>
-        <span class="n">trail</span><span class="o">.</span><span class="n">sample_elevation</span><span class="p">(</span><span class="n">mnt_path</span><span class="p">)</span>
+        <span class="n">trail</span><span class="o">.</span><span class="n">sample_elevation</span><span class="p">(</span><span class="n">mnt_path</span><span class="p">,</span> <span class="n">departure_dt</span><span class="p">,</span> <span class="n">buffer_mode</span><span class="p">)</span>
 
         <span class="c1">########################## MNS DOWNLOAD (for Shade) ############################</span>
         <span class="n">feedback</span><span class="o">.</span><span class="n">pushInfo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Download Digital Surface Model (MNS) from IGN...&quot;</span><span class="p">)</span>
