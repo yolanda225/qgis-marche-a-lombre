@@ -15,7 +15,7 @@ except (ImportError, ValueError, RuntimeError, OSError) as e:
 
 class TrailPoint:
 
-    def __init__(self, lon, lat, x, y, z, datetime, solar_pos=None):
+    def __init__(self, lon, lat, x, y, z, datetime, convergence):
         """
         Initializes a TrailPoint and automatically calculates the solar position
 
@@ -26,7 +26,7 @@ class TrailPoint:
             y (float): Projected Y coordinate
             z (float): Elevation
             datetime (datetime): Time of arrival
-            solar_pos (float,float): precalculated solar position. Defaults to None. 
+            convergence (float): meridian convergence
         """
         self.lon = lon
         self.lat = lat
@@ -34,10 +34,8 @@ class TrailPoint:
         self.y = y
         self.z = z
         self.datetime = datetime
-        if solar_pos is not None:
-            self.solar_pos = solar_pos
-        else:
-            self.solar_pos = self.calc_solar_pos(self.datetime)
+        self.convergence = convergence
+        self.solar_pos, self.azimuth_grid = self.calc_solar_pos(self.datetime)
 
     def calc_solar_pos(self, dt):
         """
@@ -59,7 +57,10 @@ class TrailPoint:
                 sp = pvlib.solarposition.get_solarposition(dt, self.lat, self.lon, altitude=None, pressure=None, method='nrel_numpy')
                 azimuth_pvlib = sp['azimuth'].iloc[0]
                 elevation_pvlib = 90-sp['zenith'].iloc[0]
-                return (math.radians(elevation_pvlib), math.radians(azimuth_pvlib))
+                az_rad = math.radians(elevation_pvlib)
+                # Apply Convergence (True Azimuth -> Grid Azimuth)
+                az_grid= (az_rad + self.convergence + 2 * math.pi) % (2 * math.pi)
+                return (az_rad, math.radians(azimuth_pvlib)), az_grid
             except Exception as e:
                 print(f"PVLib failed, falling back to manual: {e}")
         
@@ -107,5 +108,6 @@ class TrailPoint:
         azimuth_rad = math.atan2(y, x)
         # Normalize to 0-2pi
         azimuth_rad = (azimuth_rad + 2 * math.pi) % (2 * math.pi)
+        az_grid = (azimuth_rad + self.convergence + 2 * math.pi) % (2 * math.pi)
 
-        return (elevation_rad, azimuth_rad)
+        return (elevation_rad, azimuth_rad), az_grid

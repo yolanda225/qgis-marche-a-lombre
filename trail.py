@@ -85,6 +85,33 @@ class Trail:
             nodes.reverse()
             return QgsGeometry.fromPolylineXY(nodes)
         return geometry
+    
+    def calc_meridian_convergence(self, source_center):
+        """Calculates Meridian Convergence correction
+
+        Args:
+            source_center (QgsPointXY): Center point of trail extent
+
+        Returns:
+            float: Convergence value
+        """
+        convergence = 0.0
+        try:
+            center_l93 = self.transform.transform(source_center)
+            center_geo = self.to_wgs84.transform(center_l93)
+            # Create point slightly North (True North)
+            north_geo = QgsPointXY(center_geo.x(), center_geo.y() + 0.1) 
+            north_l93 = self.to_wgs84.transform(north_geo, QgsCoordinateTransform.ReverseTransform)
+            
+            # Calculate angle of the "True North" vector relative to Grid North (Y-axis)
+            dx = north_l93.x() - center_l93.x()
+            dy = north_l93.y() - center_l93.y()
+            convergence = math.atan2(dx, dy)
+            self.log(f"Meridian Convergence at trail center: {math.degrees(convergence):.4f} deg")
+
+        except Exception as e:
+            self.log(f"Warning: Could not calculate convergence: {e}. Defaulting to 0.")
+        return convergence
 
     def process_trail(self, source_tracks, start_time, break_point, picnic_duration=0, reverse=False, buffer=False, project_crs=None, adjust_for_slope=False):
         """Processes input GPX source tracks into a list of TrailPoint objects
@@ -148,7 +175,8 @@ class Trail:
             except Exception as e:
                 print(f"ERROR: Failed to transform break point: {e}")
                 transformed_break_point = None
-        
+
+        meridian_convergence = self.calc_meridian_convergence(source_tracks.sourceExtent().center())
         total_dist = 0.0
         center_points = []
         
@@ -193,7 +221,6 @@ class Trail:
                 verts = densified_geom.vertices()
                 prev_pt = None
                 
-                solar_counter = 0
                 solar_pos=None
                 for v in verts:
                     pt_l93 = QgsPointXY(v.x(), v.y())
@@ -209,10 +236,6 @@ class Trail:
                     else:
                         seconds_elapsed = total_dist / self.speed
                         current_time = start_time.addSecs(int(seconds_elapsed))
-
-                    solar_counter += 1
-                    if solar_counter == 0:
-                        solar_pos=None #Calculate new solar_pos every 3 points
                     
                     # Create TrailPoint object
                     tp = TrailPoint(
@@ -222,7 +245,7 @@ class Trail:
                         lat=geo_pt.y(), # Latitude
                         lon=geo_pt.x(), # Longitude
                         datetime=current_time,
-                        solar_pos=solar_pos
+                        convergence=meridian_convergence
                     )
                     
                     center_points.append(tp)

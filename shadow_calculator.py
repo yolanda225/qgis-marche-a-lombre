@@ -210,7 +210,7 @@ class ShadowCalculator:
                 
                 # Draw line in azimuth direction
                 indices = self.draw_bresenham_line(
-                    h_col, h_row, high_max_px, tp.solar_pos[1], self.high_rows, self.high_cols
+                    h_col, h_row, high_max_px, tp.azimuth_grid, self.high_rows, self.high_cols
                 )
                 
                 # Calculate angles of line
