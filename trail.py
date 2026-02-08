@@ -193,6 +193,8 @@ class Trail:
                 verts = densified_geom.vertices()
                 prev_pt = None
                 
+                solar_counter = 0
+                solar_pos=None
                 for v in verts:
                     pt_l93 = QgsPointXY(v.x(), v.y())
                     geo_pt = self.to_wgs84.transform(pt_l93)
@@ -207,6 +209,10 @@ class Trail:
                     else:
                         seconds_elapsed = total_dist / self.speed
                         current_time = start_time.addSecs(int(seconds_elapsed))
+
+                    solar_counter += 1
+                    if solar_counter == 0:
+                        solar_pos=None #Calculate new solar_pos every 3 points
                     
                     # Create TrailPoint object
                     tp = TrailPoint(
@@ -215,7 +221,8 @@ class Trail:
                         z = 0, # implement with MNT
                         lat=geo_pt.y(), # Latitude
                         lon=geo_pt.x(), # Longitude
-                        datetime=current_time
+                        datetime=current_time,
+                        solar_pos=solar_pos
                     )
                     
                     center_points.append(tp)

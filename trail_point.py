@@ -15,7 +15,7 @@ except (ImportError, ValueError, RuntimeError, OSError) as e:
 
 class TrailPoint:
 
-    def __init__(self, lon, lat, x, y, z, datetime):
+    def __init__(self, lon, lat, x, y, z, datetime, solar_pos=None):
         """
         Initializes a TrailPoint and automatically calculates the solar position
 
@@ -26,6 +26,7 @@ class TrailPoint:
             y (float): Projected Y coordinate
             z (float): Elevation
             datetime (datetime): Time of arrival
+            solar_pos (float,float): precalculated solar position. Defaults to None. 
         """
         self.lon = lon
         self.lat = lat
@@ -33,7 +34,10 @@ class TrailPoint:
         self.y = y
         self.z = z
         self.datetime = datetime
-        self.solar_pos = self.calc_solar_pos(self.datetime)
+        if solar_pos is not None:
+            self.solar_pos = solar_pos
+        else:
+            self.solar_pos = self.calc_solar_pos(self.datetime)
 
     def calc_solar_pos(self, dt):
         """
