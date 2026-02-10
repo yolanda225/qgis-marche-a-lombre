@@ -59,10 +59,10 @@ class TrailPoint:
                 sp = pvlib.solarposition.get_solarposition(dt, self.lat, self.lon, altitude=None, pressure=None, method='nrel_numpy')
                 azimuth_pvlib = sp['azimuth'].iloc[0]
                 elevation_pvlib = 90-sp['zenith'].iloc[0]
-                az_rad = math.radians(elevation_pvlib)
+                az_rad = math.radians(azimuth_pvlib)
                 # Apply Convergence (True Azimuth -> Grid Azimuth)
                 az_grid= (az_rad + self.convergence + 2 * math.pi) % (2 * math.pi)
-                return az_rad, math.radians(azimuth_pvlib), az_grid
+                return math.radians(elevation_pvlib), az_rad, az_grid
             except Exception as e:
                 print(f"PVLib failed, falling back to manual: {e}")
         
