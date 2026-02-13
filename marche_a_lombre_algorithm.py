@@ -111,7 +111,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
                 self.tr('Input layer - tracks'),
-                [QgsProcessing.TypeVectorAnyGeometry]
+                [QgsProcessing.TypeVectorLine]
             )
         )
 

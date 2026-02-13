@@ -7,7 +7,7 @@ Licensed under GPL v2+
 import math
 from qgis.core import (QgsCoordinateTransform, QgsPointXY, QgsGeometry, 
                        QgsRectangle, QgsCoordinateReferenceSystem,
-                       QgsRasterLayer)
+                       QgsRasterLayer, QgsWkbTypes)
 from .trail_point import TrailPoint
 from .geo_definitions import REGIONS, MANUAL_DEFS
 
@@ -131,6 +131,13 @@ class Trail:
         Raises:
             Exception: If coordinate transformation fails or no valid trail points are generated
         """
+        # Validate user input
+        if QgsWkbTypes.geometryType(source_tracks.wkbType()) != QgsWkbTypes.LineGeometry:
+            raise Exception("Input layer must be a Line layer (LineString or MultiLineString).")
+
+        if source_tracks.featureCount() == 0:
+            raise Exception("Input layer contains no features. If using a GPX file, ensure you selected 'tracks' and not 'routes'.")
+        
         wgs84_extent = source_tracks.sourceExtent()
         self.center_lat = wgs84_extent.center().y()
         self.adjust_for_slope = adjust_for_slope
