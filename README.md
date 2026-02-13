@@ -15,7 +15,7 @@ This plugin analyzes hiking trails to determine which parts will be in shadow or
 ## Features
 
 - Dynamic layer retrieval from IGNs Web Map Service (https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities)
-- Avergae hiking speed and picnic break
+- Average hiking speed and picnic break
 - Adjust hiking speed to slope using Tobler's hiking function
 - Reversal of trail
 - Buffered calculation (calculation also 5m to the right and left of the trail to visualize shadow next to trail)
