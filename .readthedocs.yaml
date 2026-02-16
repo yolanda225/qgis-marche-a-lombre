@@ -10,4 +10,4 @@ python:
     - requirements: requirements.txt
 
 sphinx:
-  configuration: marche_a_lombre/help/source/conf.py
+  configuration: help/source/conf.py
