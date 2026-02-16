@@ -1,0 +1,7 @@
+# Documentation
+sphinx>=7.0.0
+sphinx-rtd-theme
+
+# Project dependencies
+numpy
+pvlib # optional
