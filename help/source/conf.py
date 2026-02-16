@@ -19,7 +19,7 @@ import sys, os
 #sys.path.insert(0, os.path.abspath('.'))
 # Adjust for read the docs
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, '../../'))
+project_root = os.path.abspath(os.path.join(current_dir, '../../../'))
 sys.path.insert(0, project_root)
 # -- General configuration -----------------------------------------------------
 
