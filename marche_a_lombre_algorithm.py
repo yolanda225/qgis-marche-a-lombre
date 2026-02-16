@@ -489,14 +489,7 @@ class MarcheALOmbreAlgorithm(QgsProcessingAlgorithm):
         """
         Returns the URL to the help page
         """
-        cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
-        help_path = os.path.join(cmd_folder, 'help', 'build', 'html', 'index.html')
-        
-        if os.path.exists(help_path):
-            return "file://" + help_path
-        
-        # Fallback if local help isn't built yet
-        return "https://github.com/yolanda225/qgis-marche-a-lombre"
+        return "https://qgis-marche-a-lombre.readthedocs.io"
 
     def shortHelpString(self):
         """

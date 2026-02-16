@@ -2,7 +2,7 @@
 name=Marche à l'ombre
 qgisMinimumVersion=3.0
 description=This plugin calculates for a given hike the shady and sunny parts
-version=0.1
+version=0.12
 author=Yolanda Seifert
 email=yolanda.seifert@gmx.de
 
